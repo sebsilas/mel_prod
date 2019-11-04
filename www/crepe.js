@@ -130,12 +130,12 @@ function valMelody(target_melody, midi_input_stream_no_rep) {
     console.log(full_trial_data);
     
     // to R too		  
-	Shiny.setInputValue(r_user_input, user_input); //send to shiny
-	Shiny.setInputValue(r_user_input_midi, user_input_midi); //send to shiny
-	Shiny.setInputValue(r_pitches_times, pitches_times); //send to shiny
-	Shiny.setInputValue(r_confidences, confidences); //send to shiny
-	Shiny.setInputValue(r_playback_values, playback_values); //send to shiny
-	Shiny.setInputValue(r_error_values, error_values); //send to shiny
+	Shiny.setInputValue("r_user_input", user_input); //send to shiny
+	Shiny.setInputValue("r_user_input_midi", user_input_midi); //send to shiny
+	Shiny.setInputValue("r_pitches_times", pitches_times); //send to shiny
+	Shiny.setInputValue("r_confidences", confidences); //send to shiny
+	Shiny.setInputValue("r_playback_values", playback_values); //send to shiny
+	Shiny.setInputValue("r_error_values", error_values); //send to shiny
 		
 	}
 	else {
@@ -292,13 +292,13 @@ crepe = (function() {
               //console.log(confidences); // SJS: print to console
               //console.log(error_values); // SJS: print to console
               //console.log(playback_values); // SJS: print to console
-              
-              Shiny.setInputValue(r_user_input, user_input); //send to shiny
-			  Shiny.setInputValue(r_user_input_midi, user_input_midi); //send to shiny
-			  Shiny.setInputValue(r_pitches_times, pitches_times); //send to shiny
-			  Shiny.setInputValue(r_confidences, confidences); //send to shiny
-			  Shiny.setInputValue(r_playback_values, playback_values); //send to shiny
-			  Shiny.setInputValue(r_error_values, error_values); //send to shiny
+
+              Shiny.setInputValue("r_user_input", user_input); //send to shiny
+			  Shiny.setInputValue("r_user_input_midi", user_input_midi); //send to shiny
+			  Shiny.setInputValue("r_pitches_times", pitches_times); //send to shiny
+			  Shiny.setInputValue("r_confidences", confidences); //send to shiny
+			  Shiny.setInputValue("r_playback_values", playback_values); //send to shiny
+			  Shiny.setInputValue("r_error_values", error_values); //send to shiny
 
 		          
 	          }
