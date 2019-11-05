@@ -4,6 +4,7 @@
 
 library(psychTestR)
 library(htmltools)
+library(shiny)
 
 
 enable.cors.2 <- '
@@ -60,7 +61,14 @@ Voicing Confidence: <span id="voicing-confidence"></span><br>
 </div>'
 
 
-get_answer <- function(input, ...) list(r_user_input = input$r_user_input, r_user_input_midi = input$r_user_input_midi, r_pitches_times = input$r_pitches_times, r_confidences = input$r_confidences, r_playback_values = input$r_playback_values, r_error_values = input$r_error_values)
+get_answer <- function(input, ...) {
+  list(r_user_input = input$r_user_input,
+       r_user_input_midi = input$r_user_input_midi,
+       r_pitches_times = input$r_pitches_times,
+       r_confidences = input$r_confidences,
+       r_playback_values = input$r_playback_values, 
+       r_error_values = input$r_error_values)
+}
 
 # create a page type for playing back midi
 
