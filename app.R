@@ -5,6 +5,7 @@
 library(psychTestR)
 library(htmltools)
 library(shiny)
+library(shinyBS)
 
 
 enable.cors.2 <- '
@@ -156,10 +157,11 @@ get_answer <- function(input, ...) {
 
 # create a page type for playing back midi
 
+
 midi_page <- function(stimuli_no, 
                       note_no,
                       admin_ui = NULL,
-                      on_complete = NULL, 
+                      on_complete = NULL, # put to NULL for no graph plot
                       label= NULL
                       ) {
   ui <- div(
@@ -169,10 +171,10 @@ midi_page <- function(stimuli_no,
       shiny::tags$script(htmltools::HTML(enable.cors.2)),
       htmltools::HTML(audio.preload),
       shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-      #shiny::tags$script(src="https://eartrainer.app/melodic-production/js/crepe/tfjs-0.8.0.min.js"),
-      #shiny::tags$script(src="https://eartrainer.app/melodic-production/js/crepe/crepe.js")
-      shiny::tags$script(src="tfjs-0.8.0.min.js"),
-      shiny::tags$script(src="crepe.js")
+      #shiny::tags$script(src="https://eartrainer.app/melodic-production/js/crepe/tfjs-0.8.0.min.js"), # use if local
+      #shiny::tags$script(src="https://eartrainer.app/melodic-production/js/crepe/crepe.js") # use if local
+      shiny::tags$script(src="tfjs-0.8.0.min.js"), # use on shiny server
+      shiny::tags$script(src="crepe.js")  # use on shiny server
     ), # end head
     
     # start body
@@ -199,17 +201,47 @@ midi_page <- function(stimuli_no,
  
 }
 
-# create some trials
+# create some midi trials
 mid_1 <- midi_page(stimuli_no = 3, note_no = 5, label="Page 1")
 mid_2 <- midi_page(stimuli_no = 7, note_no = 10, label="Page 2")
 
 
+# define plot page
+
+plot_page <- function(x,
+                      y,
+                      admin_ui = NULL,
+                      on_complete = NULL, 
+                      label= NULL
+                      ) {
+  ui <- div(
+    
+    # start body
+    
+    renderPlot({ plot(x, y) }),
+   
+    trigger_button("Next", label="Next", icon = NULL, width = NULL)
+    
+  ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label,
+                   get_answer = get_answer, save_answer = FALSE)
+  
+}
+
 
 # create the timeline
 timeline <- list(
+  one_button_page("Hello, welcome to the test."),
   mid_1,
+  elt_save_results_to_disk(complete = FALSE),
+  reactive_page(function(answer, ...) {
+    plot_page(x = answer$r_pitches_times, y = answer$r_user_input)
+  }),
+  elt_save_results_to_disk(complete = FALSE),
   one_button_page("Thank you! Click to proceed."),
   mid_2,
+  elt_save_results_to_disk(complete = FALSE),
   one_button_page("Thank you! Click to proceed."),
   elt_save_results_to_disk(complete = TRUE),
   final_page("The end")
@@ -218,7 +250,7 @@ timeline <- list(
 # run the test
 test <- make_test(elts = timeline)
 
-#shiny::runApp(test)
+#shiny::runApp(test) # make sure this is commented out for shiny server
 
 # deploy on shiny server
 #library(rsconnect)
