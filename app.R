@@ -1,14 +1,23 @@
-#setup
-#dir = "/Users/sebsilas/mel_prod"
-#setwd(dir)
+# setup
+
+dir = "/Users/sebsilas/mel_prod_record2file_v2" # take out for remote
+setwd(dir) # take out for remote
+
+# imports
 
 library(psychTestR)
 library(htmltools)
 library(shiny)
 library(shinyBS)
+library(shinyjs)
+library(tuneR)
+library(googleLanguageR)
 
 
-enable.cors.2 <- '
+
+# handle CORS request
+
+enable.cors <- '
 // Create the XHR object.
 function createCORSRequest(method, url) {
 var xhr = new XMLHttpRequest();
@@ -32,7 +41,7 @@ return text.match(\'<title>(.*)?</title>\')[1];
 // Make the actual CORS request.
 function makeCorsRequest() {
 // This is a sample server that supports CORS.
-var url = \'https://eartrainer.app/melodic-production/js/midi.js\';
+var url = \'https://www.eartrainer.app/melodic-production/js/midi.js\';
 var xhr = createCORSRequest(\'GET\', url);
 if (!xhr) {
 alert(\'CORS not supported\');
@@ -51,91 +60,6 @@ xhr.send();
 }
 '
 
-audio.preload <- '
-<audio controls preload="auto">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new001.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new002.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new003.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new004.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new005.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new006.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new007.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new008.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new009.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new010.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new011.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new012.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new013.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new014.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new015.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new016.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new017.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new018.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new019.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new020.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new021.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new022.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new023.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new024.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new025.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new026.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new027.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new028.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new029.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new030.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new031.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new032.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new033.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new034.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new035.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new036.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new037.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new038.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new039.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new040.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new041.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new042.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new043.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new045.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new046.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new047.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new048.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new049.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new050.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new051.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new052.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new053.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new054.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new055.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new056.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new057.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new058.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new059.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new060.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new061.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new062.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new063.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new064.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new065.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new066.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new067.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new068.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new069.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new070.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new071.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new072.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new073.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new074.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new075.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new076.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new077.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new078.mp3" type="audio/mpeg">
-  <source src="http://eartrainer.app/melodic-production/stimuli/midi_piano_notes/new079.mp3" type="audio/mpeg">
-Your browser does not support the audio element.
-</audio>
-'
-
-
 crepe.html <- '
 <div id="output">
 <br>
@@ -143,67 +67,248 @@ Status: <span id="status"></span><br>
 Estimated Pitch: <span id="estimated-pitch"></span><br>
 Voicing Confidence: <span id="voicing-confidence"></span><br>
 <p>Your sample rate is <span id="srate"></span> Hz.</p>
-</div>'
+</div>
+'
+
+audio.preload <- '
+<audio controls preload="auto">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new001.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new002.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new003.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new004.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new005.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new006.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new007.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new008.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new009.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new010.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new011.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new012.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new013.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new014.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new015.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new016.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new017.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new018.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new019.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new020.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new021.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new022.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new023.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new024.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new025.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new026.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new027.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new028.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new029.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new030.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new031.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new032.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new033.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new034.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new035.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new036.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new037.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new038.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new039.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new040.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new041.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new042.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new043.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new045.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new046.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new047.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new048.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new049.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new050.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new051.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new052.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new053.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new054.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new055.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new056.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new057.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new058.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new059.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new060.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new061.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new062.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new063.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new064.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new065.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new066.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new067.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new068.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new069.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new070.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new071.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new072.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new073.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new074.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new075.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new076.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new077.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new078.mp3" type="audio/mpeg">
+<source src="https://www.eartrainer.app/melodic-production/stimuli/midi_piano_notes/new079.mp3" type="audio/mpeg">
+Your browser does not support the audio element.
+</audio>
+'
 
 
-get_answer <- function(input, ...) {
-  list(r_user_input = input$r_user_input,
-       r_user_input_midi = input$r_user_input_midi,
-       r_pitches_times = input$r_pitches_times,
-       r_confidences = input$r_confidences,
-       r_playback_values = input$r_playback_values, 
-       r_error_values = input$r_error_values)
+
+freq.to.midi  <- function(f) {
+  midi <- round(12 * log2(as.numeric(f) / 440) + 69);
+  round(midi) # currently rounding up to the nearest integer
 }
 
-# create a page type for playing back midi
 
 
-midi_page <- function(stimuli_no, 
-                      note_no,
-                      admin_ui = NULL,
-                      on_complete = NULL, # put to NULL for no graph plot
-                      label= NULL
-                      ) {
+get.answer.calibration <- function(input, ...) {
+  
+  # compute mean pitch
+  mean.pitch <- strsplit(input$r_user_input, split=" ")
+  mean.pitch <- as.numeric(as.vector(mean.pitch[[1]]))
+  mean.pitch <- mean(round(mean.pitch,2))
+  
+  list(r_user_input = input$r_user_input,
+       r_pitches_times = input$r_pitches_times,
+       r_confidences = input$r_confidences,
+       mean_pitch = mean.pitch
+       )
+  
+}
+
+
+
+calibration_page <- function(
+  admin_ui = NULL,
+  on_complete = NULL, 
+  label= NULL
+) {
   ui <- div(
     
     shiny::tags$head(
-      shiny::tags$script(sprintf("var stimuli_no = %d; var note_no = %d", stimuli_no, note_no)),
-      shiny::tags$script(htmltools::HTML(enable.cors.2)),
-      htmltools::HTML(audio.preload),
       shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-      #shiny::tags$script(src="https://eartrainer.app/melodic-production/js/crepe/tfjs-0.8.0.min.js"), # use if local
-      #shiny::tags$script(src="https://eartrainer.app/melodic-production/js/crepe/crepe.js") # use if local
-      shiny::tags$script(src="tfjs-0.8.0.min.js"), # use on shiny server
-      shiny::tags$script(src="crepe.js")  # use on shiny server
+      shiny::tags$script(src="main.js"),
+      shiny::tags$script(src="speech.js"),
+      shiny::tags$script(src="audiodisplay.js")
     ), # end head
     
     # start body
     
     htmltools::HTML(crepe.html),
     shiny::tags$div(class = '_hidden',
-    textInput('r_user_input', label = ''), # empty and hidden, waiting for javascript
-    textInput('r_user_input_midi', label = ''), # empty and hidden, waiting for javascript
-    textInput('r_pitches_times', label = ''), # empty and hidden, waiting for javascript
-    textInput('r_confidences', label = ''), # empty and hidden, waiting for javascript
-    textInput('r_playback_values', label = ''), # empty and hidden, waiting for javascript
-    textInput('r_error_values', label = '') # empty and hidden, waiting for javascript
-      ), # end _hidden div
-      
-    actionButton("play_melody","Play Melody", onclick="loadJSON(run)"),
+                    textInput('r_user_input', label = ''), # empty and hidden, waiting for javascript
+                    textInput('r_pitches_times', label = ''), # empty and hidden, waiting for javascript
+                    textInput('r_confidences', label = '') # empty and hidden, waiting for javascript
+    ), # end _hidden div
+    
+    actionButton(inputId = "record", label = "I'm Ready!", onclick="toggleRecording(this);"),
     
     trigger_button("finish", label="Finish", icon = NULL, width = NULL,
-                   enable_after = 3)
+                   enable_after = 3, onclick="audioContext.suspend()")
     
   ) # end main div
- 
+  
   psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label,
-                   get_answer = get_answer, save_answer = TRUE)
- 
+                   get_answer = get.answer.calibration, save_answer = TRUE)
+  
 }
 
-# create some midi trials
-mid_1 <- midi_page(stimuli_no = 3, note_no = 5, label="Page 1")
-mid_2 <- midi_page(stimuli_no = 7, note_no = 10, label="Page 2")
+
+
+
+# create a page type that can playback midi and saves audio files
+
+
+midi_and_save2audio_page <- function(stimuli_no, 
+                                     note_no,
+                                     admin_ui = NULL,
+                                     on_complete = NULL, 
+                                     label= NULL
+) {
+
+ 
+  input_audio <- reactive({
+    req(input$audio)
+    a <- input$audio
+    
+    if(length(a) > 0){
+      return(a)
+    } else {
+      NULL
+    }
+    
+  })
+  
+  wav_name <- reactive({
+    req(input_audio())
+    
+    a <- input_audio()
+    
+    ## split two channel audio
+    audio_split <- length(a)/2
+    a1 <- a[1:audio_split]
+    a2 <- a[(audio_split+1):length(a)]
+    
+    # construct wav object that the API likes
+    Wobj <- Wave(a1, a2, samp.rate = 44100, bit = 16)
+    Wobj <- normalize(Wobj, unit = "16", pcm = TRUE)
+    Wobj <- mono(Wobj)
+    
+    wav_name <- paste0("audio",gsub("[^0-9]","",Sys.time()),".wav")
+    
+    writeWave(Wobj, wav_name, extensible = FALSE)
+    
+    wav_name
+    
+    
+  })
+  
+  
+  
+  ui <- div(
+    
+    shiny::tags$head(
+      shiny::tags$script(htmltools::HTML(enable.cors)),
+      shiny::tags$script(sprintf("var stimuli_no = %d; var note_no = %d", stimuli_no, note_no)),
+      htmltools::HTML(audio.preload),
+
+      shiny::tags$style('._hidden { display: none;}') # to hide textInputs
+      
+    ), # end head
+    
+    # start body
+    
+    useShinyjs(),
+    includeScript("https://eartrainer.app/record/main.js"),
+    includeScript("https://eartrainer.app/record/speech.js"),
+    includeScript("https://eartrainer.app/record/audiodisplay.js"),
+
+    shiny::tags$p("Press Play to hear a melody. Please keep singing it back until you think you have sung it correctly, then press Stop. Don't worry if you don't think you sung it right, just do your best!"),
+
+    img(id = "record",
+    src = "https://eartrainer.app/record/mic128.png",
+    onclick = "console.log(\"Pushed Record\");audioContext.resume();console.log(this);toggleRecording(this);",
+    style = "display:block; margin:1px auto;"),
+
+        helpText("Click on the microphone to record."),
+        hr(),
+        div(id = "viz",
+            tags$canvas(id = "analyser"),
+            tags$canvas(id = "wavedisplay")
+        ),
+        br(),
+        hr()
+
+    
+    ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE)
+  
+}
+
+
 
 
 # define plot page
@@ -213,46 +318,61 @@ plot_page <- function(x,
                       admin_ui = NULL,
                       on_complete = NULL, 
                       label= NULL
-                      ) {
+) {
+  
+  
   ui <- div(
     
     # start body
     
-    renderPlot({ plot(x, y) }),
-   
+    shiny::tags$p(sprintf("The mean pitch was %f", answer$Calibration$mean_pitch)),
+    shiny::tags$p(sprintf("The nearest MIDI note of the mean pitch is %f", freq.to.midi(answer$Calibration$mean_pitch))),
+    
+    
     trigger_button("Next", label="Next", icon = NULL, width = NULL)
     
   ) # end main div
   
   psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label,
-                   get_answer = get_answer, save_answer = FALSE)
+                   get_answer = NULL, save_answer = FALSE) 
   
 }
 
 
+
+
+
 # create the timeline
 timeline <- list(
-  one_button_page("Hello, welcome to the test."),
-  mid_1,
+  
+  midi_and_save2audio_page(stimuli_no = 7, note_no = 10, label="Page 2"),
+  
+  calibration_page(label="Calibration"),
+  
   elt_save_results_to_disk(complete = FALSE),
+  
   reactive_page(function(answer, ...) {
     plot_page(x = answer$r_pitches_times, y = answer$r_user_input)
   }),
-  elt_save_results_to_disk(complete = FALSE),
+  
+ 
   one_button_page("Thank you! Click to proceed."),
-  mid_2,
-  elt_save_results_to_disk(complete = FALSE),
-  one_button_page("Thank you! Click to proceed."),
-  elt_save_results_to_disk(complete = TRUE),
+  
+  elt_save_results_to_disk(complete = TRUE), # after last page
   final_page("The end")
 )
 
 # run the test
-test <- make_test(elts = timeline)
+test <- make_test(
+  elts = timeline,
+  opt = test_options("Test", "demo",
+    display = display_options(
+      css = "style.css")
+  )
+  )
 
-#shiny::runApp(test) # make sure this is commented out for shiny server
+shiny::runApp(test) # make sure this is commented out for shiny server
 
 # deploy on shiny server
 #library(rsconnect)
-#rsconnect::deployApp('/Users/sebsilas/mel_prod')
-
+#rsconnect::deployApp('/Users/sebsilas/mel_prod_record2file')
