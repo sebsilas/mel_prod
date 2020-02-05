@@ -225,8 +225,7 @@ midi_and_save2audio_page <- function(stimuli_no,
                                      note_no,
                                      admin_ui = NULL,
                                      on_complete = NULL, 
-                                     label= NULL, input, output
-) {
+                                     label= NULL) {
     
   result_text <- renderText({
     req(get_api_text())
