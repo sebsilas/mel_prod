@@ -225,10 +225,56 @@ midi_and_save2audio_page <- function(stimuli_no,
                                      note_no,
                                      admin_ui = NULL,
                                      on_complete = NULL, 
-                                     label= NULL
+                                     label= NULL, input, output
 ) {
-
- 
+    
+  result_text <- renderText({
+    req(get_api_text())
+    
+    get_api_text()
+    
+  })
+  
+  output$result_translation <- renderText({
+    req(translation())
+    
+    translation()
+  })
+  
+  output$nlp_sentences <- renderTable({
+    req(nlp())
+    
+    nlp()$sentences[[1]]
+    
+  })
+  
+  output$nlp_tokens <- renderTable({
+    req(nlp())
+    
+    ## only a few otherwise it breaks formatting
+    nlp()$tokens[[1]][, c("content","beginOffset","tag","mood","number")]
+    
+  })
+  
+  output$nlp_entities <- renderTable({
+    req(nlp())
+    
+    nlp()$entities[[1]]
+    
+  })
+  
+  output$nlp_misc <- renderTable({
+    req(nlp())
+    
+    data.frame(
+      language = nlp()$language,
+      text = nlp()$text,
+      documentSentimentMagnitude = nlp()$documentSentiment$magnitude,
+      documentSentimentScore = nlp()$documentSentiment$score
+    )
+    
+  })
+  
   input_audio <- reactive({
     req(input$audio)
     a <- input$audio
@@ -265,7 +311,151 @@ midi_and_save2audio_page <- function(stimuli_no,
     
   })
   
+  get_api_text <- reactive({
+    req(wav_name())
+    req(input$language)
+    
+    if(input$language == ""){
+      stop("Must enter a languageCode - default en-US")
+    }
+    
+    wav_name <- wav_name()
+    
+    if(!file.exists(wav_name)){
+      return(NULL)
+    }
+    
+    message("Calling Speech API")
+    shinyjs::show(id = "api",
+                  anim = TRUE,
+                  animType = "fade",
+                  time = 1,
+                  selector = NULL)
+    
+    # make API call
+    me <- gl_speech(wav_name,
+                    sampleRateHertz = 44100L,
+                    languageCode = input$language)
+    
+    ## remove old file
+    unlink(wav_name)
+    
+    message("API returned: ", me$transcript$transcript)
+    shinyjs::hide(id = "api",
+                  anim = TRUE,
+                  animType = "fade",
+                  time = 1,
+                  selector = NULL)
+    
+    me$transcript$transcript
+  })
   
+  translation <- reactive({
+    
+    req(get_api_text())
+    req(input$translate)
+    
+    if(input$translate == "none"){
+      return("No translation required")
+    }
+    
+    message("Calling Translation API")
+    shinyjs::show(id = "api",
+                  anim = TRUE,
+                  animType = "fade",
+                  time = 1,
+                  selector = NULL)
+    
+    ttt <- gl_translate(get_api_text(), target = input$translate)
+    
+    message("API returned: ", ttt$translatedText)
+    shinyjs::hide(id = "api",
+                  anim = TRUE,
+                  animType = "fade",
+                  time = 1,
+                  selector = NULL)
+    
+    ttt$translatedText
+    
+  })
+  
+  nlp <- reactive({
+    req(get_api_text())
+    req(input$nlp)
+    
+    nlp_lang <- switch(input$nlp,
+                       none = NULL,
+                       input = substr(input$language, start = 0, stop = 2),
+                       trans = input$translate # not activated from ui.R dropdown as entity analysis only available on 'en' at the moment
+    )
+    
+    if(is.null(nlp_lang)){
+      return(NULL)
+    }
+    
+    ## has to be on supported list of NLP language codes
+    if(!any(nlp_lang %in% c("en", "zh", "zh-Hant", "fr",
+                            "de", "it", "ja", "ko", "pt", "es"))){
+      message("Unsupported NLP language, switching to 'en'")
+      nlp_lang <- "en"
+    }
+    
+    message("Calling NLP API")
+    shinyjs::show(id = "api",
+                  anim = TRUE,
+                  animType = "fade",
+                  time = 1,
+                  selector = NULL)
+    
+    nnn <- gl_nlp(get_api_text(), language = nlp_lang)
+    
+    message("API returned: ", nnn$text)
+    shinyjs::hide(id = "api",
+                  anim = TRUE,
+                  animType = "fade",
+                  time = 1,
+                  selector = NULL)
+    nnn
+    
+  })
+  
+  talk_file <- reactive({
+    req(get_api_text())
+    req(translation())
+    req(input$translate)
+    
+    # clean up any existing wav files
+    unlink(list.files("www", pattern = ".wav$", full.names = TRUE))
+    
+    # to prevent browser caching
+    paste0(input$language,input$translate,basename(tempfile(fileext = ".wav")))
+    
+  })
+  
+  output$talk <- renderUI({
+    
+    req(get_api_text())
+    req(translation())
+    req(talk_file())
+    
+    # to prevent browser caching
+    output_name <- talk_file()
+    
+    if(input$translate != "none"){
+      audio_file <- gl_talk(translation(),
+                            languageCode = input$translate,
+                            name = NULL,
+                            output = file.path("www", output_name))
+    } else {
+      audio_file <- gl_talk(get_api_text(),
+                            languageCode = input$language,
+                            output = file.path("www", output_name))
+    }
+    
+    ## the audio file sits in folder www, but the audio file must be referenced without www
+    tags$audio(autoplay = NA, controls = NA, tags$source(src = output_name))
+    
+  })
   
   ui <- div(
     
@@ -273,17 +463,13 @@ midi_and_save2audio_page <- function(stimuli_no,
       shiny::tags$script(htmltools::HTML(enable.cors)),
       shiny::tags$script(sprintf("var stimuli_no = %d; var note_no = %d", stimuli_no, note_no)),
       htmltools::HTML(audio.preload),
-
-      shiny::tags$style('._hidden { display: none;}') # to hide textInputs
-      
+      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+      includeScript("https://eartrainer.app/record/main.js"),
+      includeScript("https://eartrainer.app/record/speech.js"),
+      includeScript("https://eartrainer.app/record/audiodisplay.js")
     ), # end head
     
     # start body
-    
-    useShinyjs(),
-    includeScript("https://eartrainer.app/record/main.js"),
-    includeScript("https://eartrainer.app/record/speech.js"),
-    includeScript("https://eartrainer.app/record/audiodisplay.js"),
 
     shiny::tags$p("Press Play to hear a melody. Please keep singing it back until you think you have sung it correctly, then press Stop. Don't worry if you don't think you sung it right, just do your best!"),
 
@@ -301,7 +487,6 @@ midi_and_save2audio_page <- function(stimuli_no,
         br(),
         hr()
 
-    
     ) # end main div
   
   psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE)
