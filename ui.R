@@ -4,11 +4,10 @@ library(shinyjs)
 shinyUI(
   fluidPage(
     useShinyjs(),
-    includeCSS("www/style.css"),
-    
-    includeScript("https://eartrainer.app/record/main.js"),
-    includeScript("https://eartrainer.app/record/speech.js"),
-    includeScript("https://eartrainer.app/record/audiodisplay.js"),
+    includeCSS("style.css"),
+    includeScript("www/main.js"),
+    includeScript("www/speech.js"),
+    includeScript("www/audiodisplay.js"),
 
   titlePanel("Shiny Babelfish"),
 

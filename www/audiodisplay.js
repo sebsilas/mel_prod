@@ -1,3 +1,6 @@
+console.log("loaded audiodisplay.js");
+
+
 function drawBuffer( width, height, context, data ) {
     var step = Math.ceil( data.length / width );
     var amp = height / 2;

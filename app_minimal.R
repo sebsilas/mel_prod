@@ -63,7 +63,6 @@ xhr.send();
 
 
 
-
 # create a page type that can playback midi and saves audio files
 
 
@@ -79,11 +78,11 @@ midi_and_save2audio_page <- function(stimuli_no,
     shiny::tags$head(
       shiny::tags$script(htmltools::HTML(enable.cors)),
       shiny::tags$script(sprintf("var stimuli_no = %d; var note_no = %d", stimuli_no, note_no)),
-      htmltools::HTML(audio.preload),
       shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-      includeScript("https://eartrainer.app/record/main.js"),
-      includeScript("https://eartrainer.app/record/speech.js"),
-      includeScript("https://eartrainer.app/record/audiodisplay.js")
+  
+      includeScript("www/main.js"),
+      includeScript("www/speech.js"),
+      includeScript("www/audiodisplay.js")    
       
     ), # end head
     
@@ -119,19 +118,6 @@ midi_and_save2audio_page <- function(stimuli_no,
 timeline <- list(
   
   midi_and_save2audio_page(stimuli_no = 7, note_no = 10, label="Page 1"),
-  
-  process.audio,
-  
-  calibration_page(label="Calibration"),
-  
-  elt_save_results_to_disk(complete = FALSE),
-  
-  reactive_page(function(answer, ...) {
-    plot_page(x = answer$r_pitches_times, y = answer$r_user_input)
-  }),
-  
- 
-  one_button_page("Thank you! Click to proceed."),
   
   elt_save_results_to_disk(complete = TRUE), # after last page
   final_page("The end")
