@@ -178,55 +178,8 @@ get.answer.calibration <- function(input, ...) {
   
 }
 
-
-
-calibration_page <- function(
-  admin_ui = NULL,
-  on_complete = NULL, 
-  label= NULL
-) {
-  ui <- div(
-    
-    shiny::tags$head(
-      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-      shiny::tags$script(src="main.js"),
-      shiny::tags$script(src="speech.js"),
-      shiny::tags$script(src="audiodisplay.js")
-    ), # end head
-    
-    # start body
-    
-    htmltools::HTML(crepe.html),
-    shiny::tags$div(class = '_hidden',
-                    textInput('r_user_input', label = ''), # empty and hidden, waiting for javascript
-                    textInput('r_pitches_times', label = ''), # empty and hidden, waiting for javascript
-                    textInput('r_confidences', label = '') # empty and hidden, waiting for javascript
-    ), # end _hidden div
-    
-    actionButton(inputId = "record", label = "I'm Ready!", onclick="toggleRecording(this);"),
-    
-    trigger_button("finish", label="Finish", icon = NULL, width = NULL,
-                   enable_after = 3, onclick="audioContext.suspend()")
-    
-  ) # end main div
+process.audio <- code_block(function(state, ...) {
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label,
-                   get_answer = get.answer.calibration, save_answer = TRUE)
-  
-}
-
-
-
-
-# create a page type that can playback midi and saves audio files
-
-
-midi_and_save2audio_page <- function(stimuli_no, 
-                                     note_no,
-                                     admin_ui = NULL,
-                                     on_complete = NULL, 
-                                     label= NULL) {
-    
   result_text <- renderText({
     req(get_api_text())
     
@@ -456,6 +409,58 @@ midi_and_save2audio_page <- function(stimuli_no,
     
   })
   
+})
+  
+ 
+
+
+calibration_page <- function(
+  admin_ui = NULL,
+  on_complete = NULL, 
+  label= NULL
+) {
+  ui <- div(
+    
+    shiny::tags$head(
+      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+      shiny::tags$script(src="main.js"),
+      shiny::tags$script(src="speech.js"),
+      shiny::tags$script(src="audiodisplay.js")
+    ), # end head
+    
+    # start body
+    
+    htmltools::HTML(crepe.html),
+    shiny::tags$div(class = '_hidden',
+                    textInput('r_user_input', label = ''), # empty and hidden, waiting for javascript
+                    textInput('r_pitches_times', label = ''), # empty and hidden, waiting for javascript
+                    textInput('r_confidences', label = '') # empty and hidden, waiting for javascript
+    ), # end _hidden div
+    
+    actionButton(inputId = "record", label = "I'm Ready!", onclick="toggleRecording(this);"),
+    
+    trigger_button("finish", label="Finish", icon = NULL, width = NULL,
+                   enable_after = 3, onclick="audioContext.suspend()")
+    
+  ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label,
+                   get_answer = get.answer.calibration, save_answer = TRUE)
+  
+}
+
+
+
+# create a page type that can playback midi and saves audio files
+
+
+midi_and_save2audio_page <- function(stimuli_no, 
+                                     note_no,
+                                     admin_ui = NULL,
+                                     on_complete = NULL, 
+                                     label= NULL) {
+
+  
   ui <- div(
     
     shiny::tags$head(
@@ -488,7 +493,7 @@ midi_and_save2audio_page <- function(stimuli_no,
 
     ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
   
 }
 
@@ -529,7 +534,9 @@ plot_page <- function(x,
 # create the timeline
 timeline <- list(
   
-  midi_and_save2audio_page(stimuli_no = 7, note_no = 10, label="Page 2"),
+  midi_and_save2audio_page(stimuli_no = 7, note_no = 10, label="Page 1"),
+  
+  process.audio,
   
   calibration_page(label="Calibration"),
   
