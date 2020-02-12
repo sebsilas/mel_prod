@@ -92,7 +92,7 @@ midi_and_save2audio_page <- function(stimuli_no,
 
     img(id = "record",
     src = "https://eartrainer.app/record/mic128.png",
-    onclick = "console.log(\"Pushed Record\");audioContext.resume();console.log(this);toggleRecording(this);",
+    onclick = "console.log(\"Pushed Record\");initAudio();audioContext.resume();console.log(this);toggleRecording(this);",
     style = "display:block; margin:1px auto;"),
 
         helpText("Click on the microphone to record."),

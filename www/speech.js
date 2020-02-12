@@ -1,6 +1,5 @@
 console.log("loaded speech.js");
 
-
 (function(window){
 
   var WORKER_PATH = 'recorderWorker.js';
