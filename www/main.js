@@ -23,7 +23,7 @@ function saveAudio() {
     //audioRecorder.exportWAV( doneEncoding );
     // could get mono instead by saying
     audioRecorder.exportMonoWAV( doneEncoding );
-
+    console.log("saveAudio called");
 }
 
 function gotBuffers( buffers ) {
