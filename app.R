@@ -1,4 +1,4 @@
-# minimal
+
 
 # setup
 
@@ -14,100 +14,76 @@ library(shinyBS)
 library(shinyjs)
 library(tuneR)
 library(googleLanguageR)
+library(seewave)
+library(audio)
+library(hrep)
 
 
+# constants
 
-# handle CORS request
-
-enable.cors <- '
-// Create the XHR object.
-function createCORSRequest(method, url) {
-var xhr = new XMLHttpRequest();
-if ("withCredentials" in xhr) {
-// XHR for Chrome/Firefox/Opera/Safari.
-xhr.open(method, url, true);
-} else if (typeof XDomainRequest != "undefined") {
-// XDomainRequest for IE.
-xhr = new XDomainRequest();
-xhr.open(method, url);
-} else {
-// CORS not supported.
-xhr = null;
-}
-return xhr;
-}
-// Helper method to parse the title tag from the response.
-function getTitle(text) {
-return text.match(\'<title>(.*)?</title>\')[1];
-}
-// Make the actual CORS request.
-function makeCorsRequest() {
-// This is a sample server that supports CORS.
-var url = \'https://www.eartrainer.app/melodic-production/js/midi.js\';
-var xhr = createCORSRequest(\'GET\', url);
-if (!xhr) {
-alert(\'CORS not supported\');
-return;
-}
-// Response handlers.
-xhr.onload = function() {
-var text = xhr.responseText;
-var title = getTitle(text);
-alert(\'Response from CORS request to \' + url + \': \' + title);
-};
-xhr.onerror = function() {
-alert(\'Woops, there was an error making the request.\');
-};
-xhr.send();
-}
-'
+midi_notes <- c(40:84)
+freq_notes <- lapply(midi_notes, midi_to_freq)
 
 
-
-process.audio <- code_block(function(state, answer, ...) {
-  # answer is your audio from the previous page, as extracted by get_answer()
-
-  a <- answer
-  
-  ## split two channel audio
-  audio_split <- length(a)/2
-  a1 <- a[1:audio_split]
-  a2 <- a[(audio_split+1):length(a)]
-  
-  # construct wav object that the API likes
-  Wobj <- Wave(a1, a2, samp.rate = 44100, bit = 16)
-  Wobj <- normalize(Wobj, unit = "16", pcm = TRUE)
-  Wobj <- mono(Wobj)
-  
-  wav_name <- paste0("audio",gsub("[^0-9]","",Sys.time()),".wav")
-  
-  writeWave(Wobj, wav_name, extensible = FALSE)
-  
-  wav_name
-})
+# import stimuli as relative midi notes
+stimuli <- readRDS("Berkowitz_midi_relative.RDS")
 
 
 # create a page type that can playback midi and saves audio files
 
 
-midi_and_save2audio_page <- function(stimuli_no, 
-                                     note_no,
-                                     admin_ui = NULL,
-                                     on_complete = NULL, 
-                                     label= NULL) {
+midi_and_save2audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_complete = NULL, label= NULL) {
 
+  
+  # i.e an ideal starting pitch
+  user.start.note <- 60 # hardcoded for now
+  
+  
+  # convert a relative representation of a melody to an absolute one, given a starting note
+  rel.to.abs.mel <- function(start_note, list_of_rel_notes) {
+    
+    new.mel <- cumsum(c(start_note, as.numeric(unlist(list_of_rel_notes))))
+    return(new.mel)
+  }
+  
+  
+  
+  # play melody
+  play.melody <- function(list_of_notes, midi_or_freq) { 
+    
+    if (midi_or_freq == "midi") {
+      # if input midi notes, convert to frequencies
+      list_of_notes <- lapply(list_of_notes, midi_to_freq)
+    }
+    
+    for (freq in list_of_notes) {
+      
+      # play frequencies one by one
+      music::playFreq(freq, oscillator = "sine", duration = 1, BPM = 120, sample.rate = 44100, attack.time = 50, inner.release.time = 50, plot = FALSE)
+      
+      print(freq)
+      Sys.sleep(2)
+      
+    }
+    
+  }
+  
+  # melody as defined by the page argument
+  melody <- rel.to.abs.mel(user.start.note, stimuli[stimuli_no])
+  
+  # listen for clicks to play button then play
+  observeEvent(play, {
+  play.melody(melody, "midi")
+  })
   
   ui <- div(
     
     shiny::tags$head(
       shiny::tags$script(htmltools::HTML(enable.cors)),
-      shiny::tags$script(sprintf("var stimuli_no = %d; var note_no = %d", stimuli_no, note_no)),
       shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-  
       includeScript("www/main.js"),
       includeScript("www/speech.js"),
       includeScript("www/audiodisplay.js"),
-      
      shiny::tags$script(htmltools::HTML("initAudio();"))
       
     ), # end head
@@ -115,22 +91,8 @@ midi_and_save2audio_page <- function(stimuli_no,
     # start body
 
     shiny::tags$p("Press Play to hear a melody. Please keep singing it back until you think you have sung it correctly, then press Stop. Don't worry if you don't think you sung it right, just do your best!"),
-
-    img(id = "record",
-    src = "https://eartrainer.app/record/mic128.png",
-    onclick = "console.log(\"Pushed Record\");audioContext.resume();console.log(this);toggleRecording(this);",
-    style = "display:block; margin:1px auto;"),
-
-    trigger_button("next", "Next"),
     
-        helpText("Click on the microphone to record."),
-        hr(),
-        div(id = "viz",
-            tags$canvas(id = "analyser"),
-            tags$canvas(id = "wavedisplay")
-        ),
-        br(),
-        hr()
+    actionButton("play", "Play Melody")
 
     ) # end main div
   
@@ -140,10 +102,17 @@ midi_and_save2audio_page <- function(stimuli_no,
 
 
 
+
 # create the timeline
 timeline <- list(
   
   midi_and_save2audio_page(stimuli_no = 7, note_no = 10, label="Page 1"),
+  
+  elt_save_results_to_disk(complete = FALSE),
+  
+  reactive_page(function(answer, ...) {
+    periodgram(sound = answer)
+  }),
   
   process.audio,
   
@@ -160,4 +129,4 @@ test <- make_test(
   )
   )
 
-#shiny::runApp(".") 
+#shiny::runApp(".")
