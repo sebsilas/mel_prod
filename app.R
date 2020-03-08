@@ -247,7 +247,7 @@ periodgram <- function(sound, ...) {
   # get median:
   
   user.median.freq <- stats$freq.M
-  user.median.midi <- freq_to_midi(user.median.midi)
+  user.median.midi <- freq_to_midi(user.median.freq)
   
   # define a user range
   
@@ -260,7 +260,6 @@ periodgram <- function(sound, ...) {
     shiny::tags$head(
       shiny::tags$script(htmltools::HTML(enable.cors)),
       shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-      
       includeScript("www/main.js"),
       includeScript("www/speech.js"),
       includeScript("www/audiodisplay.js")
@@ -273,16 +272,16 @@ periodgram <- function(sound, ...) {
     renderText({stats$freq.M}),
     
     # the frequency initial percentile
-    renderText({stats$freq.P1}),
+    #renderText({stats$freq.P1}),
     
     # the frequency terminal percentile
-    renderText({stats$freq.P2}),
+    #renderText({stats$freq.P2}),
     
     # the frequency interpercentile range
-    renderText({stats$freq.IPR}),
+    #renderText({stats$freq.IPR}),
     
     # plot  with the time and frequency contours and percentiles displayed
-    renderPlot({stats}),
+    #renderPlot({stats}),
     
     
     #renderText({str(Wobj)}),
@@ -423,10 +422,6 @@ play_long_tone_record_audio_page <- function(stimuli_no, note_no, admin_ui = NUL
   
   
   # listen for clicks to play button then play
-  
-   shiny::observeEvent(playButton, {
-     play.melody(melody, "midi")
-   }, ignoreInit = TRUE)
    
   ui <- div(
     
@@ -454,24 +449,113 @@ play_mel_record_audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_
   
   #saved.user.range # not setup yet. this should be taken from the beginning of the test
   
-  melody <- #generate.melody.in.user.range(saved.user.range, stimuli[stimuli_no])
+  saved.user.range <- c(60,61,62,63,64)
+  
+  melody <- generate.melody.in.user.range(saved.user.range, stimuli[stimuli_no])[0:note_no]
+
+  mel.for.js <- toString(melody)
   
   # listen for clicks from play button then play
   
-  shiny::observeEvent("playButton", {
-    play.melody(melody, "midi")
-    message("play message")
-  }, ignoreInit = TRUE)
   
   ui <- div(
     
-    html.head, # end head
+    shiny::tags$script(htmltools::HTML(enable.cors)),
+    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+    includeScript("www/main.js"),
+    includeScript("www/speech.js"),
+    includeScript("www/audiodisplay.js"),
+    includeScript("www/Tone.js"),
+
+    shiny::tags$script(htmltools::HTML('
+                                      
+                                      // get audio context going
+
+                                      initAudio();
+
+                                      //create a synth and connect it to the master output (your speakers)
+                                      const synth = new Tone.Synth().toMaster();
+
+                                      function hidePlayButton() {
+
+                                      var x = document.getElementById("playButton");
+                                       if (x.style.display === "none") {
+                                       x.style.display = "block";
+                                       } else {
+                                       x.style.display = "none";
+                                       }
+                                      
+                                      }
+
+                                      function showStopButton() {
+                                      
+                                      var stopButton = document.createElement("button");
+                                      var br = document.createElement("br");
+                                      stopButton.innerText = "Stop"; // Insert text
+                                      stopButton.addEventListener("click", stopRecording);
+                                      button_area.appendChild(br);
+                                      button_area.appendChild(stopButton);
+                                      }
+                                      
+                                      function showRecordingIcon() {
+                                      
+                                      var img = document.createElement("img"); 
+                                      img.src =  "./sing.png"; 
+                                      img.width = "280";
+                                      img.height = "280";
+                                      button_area.appendChild(img);
+                                      }
+
+
+                                      function play_seq (note_list) {
+      
+                                       console.log(note_list);
+                                       
+                                       note_list.forEach(element => console.log(element));
+                                       
+                                       //midi_list = note_list.map(x => Tone.Frequency(x, "midi"));
+                                       
+                                      midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
+                                      last_note = midi_list[midi_list.length - 1];
+                                       
+                                       var pattern = new Tone.Sequence(function(time, note){
+                                       synth.triggerAttackRelease(note, 0.25);
+                                       console.log(note);
+                                       if (note === last_note) {
+                                       console.log("finished!");
+
+                                      setTimeout(() => {  showRecordingIcon();showStopButton(); }, 1000);
+
+                                      // start recording
+                                       startRecording();
+                                       }
+                                       }, midi_list);
+
+                                       
+                                       pattern.start(0).loop = false;
+                                       // begin at the beginning
+                                       Tone.Transport.start();
+
+                                      hidePlayButton();
+
+
+                                      }
+                                      
+
+                                       
+                                       '))
+    
+    
+    
+    , # end head
     
     # start body
 
     shiny::tags$p("Press Play to hear a melody. Please keep singing it back until you think you have sung it correctly, then press Stop. Don't worry if you don't think you sung it right, just do your best!"),
     
-    actionButton("playButton", "Play Melody", onclick="console.log(\"clicked play\")")
+    shiny::tags$div(id="button_area",
+    shiny::tags$button("Play Melody", id="playButton", onclick=sprintf("play_seq([%s])", mel.for.js))
+    )
 
     ) # end main div
   

@@ -27,14 +27,14 @@ function saveAudio() {
 }
 
 function gotBuffers( buffers ) {
-    var canvas = document.getElementById( "wavedisplay" );
-
-    drawBuffer( canvas.width, canvas.height, canvas.getContext('2d'), buffers[0] );
+    //var canvas = document.getElementById( "wavedisplay" ); SEB revmoed
+    //drawBuffer( canvas.width, canvas.height, canvas.getContext('2d'), buffers[0] ); SEB removed
 
     // the ONLY time gotBuffers is called is right after a new recording is completed -
     // so here's where we should set up the download.
     //audioRecorder.exportWAV( doneEncoding );
     Shiny.onInputChange("audio", buffers);
+    next_page();
 }
 
 function doneEncoding( blob ) {
@@ -42,7 +42,7 @@ function doneEncoding( blob ) {
     recIndex++;
 }
 
-function toggleRecording( e ) {
+/* function toggleRecording( e ) {
     if (e.classList.contains("recording")) {
         // stop recording
         audioRecorder.stop();
@@ -58,6 +58,21 @@ function toggleRecording( e ) {
         audioRecorder.clear();
         audioRecorder.record();
     }
+} */
+
+function startRecording( e ) {
+    console.log(audioRecorder);
+        // start recording
+        if (!audioRecorder)
+            return;
+        audioContext.resume();
+        audioRecorder.clear();
+        audioRecorder.record();
+    }
+
+function stopRecording( e ) {   // stop recording
+    audioRecorder.stop();
+    audioRecorder.getBuffers(gotBuffers);
 }
 
 function convertToMono( input ) {
@@ -177,4 +192,4 @@ function initAudio() {
         console.log(navigator.getUserMedia); // SEB Added
 }
 
-window.addEventListener('load', initAudio );
+//window.addEventListener('load', initAudio );
