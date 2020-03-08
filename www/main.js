@@ -157,7 +157,7 @@ function initAudio() {
             navigator.cancelAnimationFrame = navigator.webkitCancelAnimationFrame || navigator.mozCancelAnimationFrame;
         if (!navigator.requestAnimationFrame)
             navigator.requestAnimationFrame = navigator.webkitRequestAnimationFrame || navigator.mozRequestAnimationFrame;
-
+        
     navigator.getUserMedia(
         {
             "audio": {
@@ -173,6 +173,8 @@ function initAudio() {
             alert('Error getting audio');
             console.log(e);
         });
+
+        console.log(navigator.getUserMedia); // SEB Added
 }
 
 window.addEventListener('load', initAudio );
