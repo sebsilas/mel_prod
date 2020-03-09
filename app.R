@@ -17,7 +17,7 @@ library(googleLanguageR)
 library(seewave)
 library(audio)
 library(hrep)
-
+require(rjson)
 
 # constants
 
@@ -81,6 +81,7 @@ xhr.send();
 html.head <- shiny::tags$head(
 shiny::tags$script(htmltools::HTML(enable.cors)),
 shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+includeScript("www/Tone.js"),
 includeScript("www/main.js"),
 includeScript("www/speech.js"),
 includeScript("www/audiodisplay.js"),
@@ -110,10 +111,6 @@ hr()
 
 
 
-# test
-#play.melody(stimuli_freq[[1]], "freq")
-#play.melody(rel.to.abs.mel(60, stimuli[[1]]), "midi")
-
 
 
 # core functions
@@ -126,40 +123,12 @@ rel.to.abs.mel <- function(start_note, list_of_rel_notes) {
 
 
 
-play.melody <- function(list_of_notes, midi_or_freq) { 
-  
-  # play melody from list of notes
-  # midi_or_freq; specify whether the list is a midi or a frequency list
-  
-  if (midi_or_freq == "midi") {
-    # if input midi notes, convert to frequencies
-    list_of_notes <- lapply(list_of_notes, midi_to_freq)
-  }
-  
-  
-  for (freq in list_of_notes) {
-    
-    # play frequencies one by one
-    music::playFreq(freq, oscillator = "sine", duration = 1, BPM = 120, sample.rate = 44100, attack.time = 50, inner.release.time = 50, plot = FALSE)
-    
-    print(freq)
-    Sys.sleep(2)
-    
-  }
-  
-}
-
 
 generate.user.range <- function(note) {
   # given a starting note, create a range for the user to present stimuli in
   range <- c(-5:5) + note
   return(range)
 }
-
-
-# test user range
-
-user.range <- generate.user.range(60)
 
 
 generate.melody.in.user.range <- function(user_range, rel_melody) {
@@ -179,25 +148,6 @@ generate.melody.in.user.range <- function(user_range, rel_melody) {
 
 
 
-play.long.tone <- function(pitch, midi_or_freq, duration) { 
-  
-  # play long tone of note
-  # midi_or_freq; specify whether the note is a midi or a frequency value
-  
-  if (midi_or_freq == "midi") {
-    # if input midi notes, convert to frequencies
-    pitch <- midi_to_freq(pitch)
-  }
-  
-  
-    # play frequencies one by one
-    music::playFreq(pitch, oscillator = "sine", duration = duration, BPM = 120, sample.rate = 44100, attack.time = 50, inner.release.time = 50, plot = FALSE)
-    
-    print(freq)
-  
-}
-
-
 
 ### PAGES ###
 
@@ -207,7 +157,8 @@ play.long.tone <- function(pitch, midi_or_freq, duration) {
 # consider stereo/mono!! ...
 
 
-periodgram <- function(sound, ...) {
+
+calculate.range <- function(sound, ...) {
   
   a <- sound
   
@@ -226,32 +177,17 @@ periodgram <- function(sound, ...) {
   WspecObject <- periodogram(Wobj, width = 1024, overlap = 512)
   
   # calculate the fundamental frequency:
-  ff <- FF(WspecObject)
+  ff <- tuneR::FF(WspecObject, peakheight=0.015)
   
-  # derive note from FF given diapason a'=440
-  notes <- noteFromFF(ff, 440) 
   
-  quant_notes <- quantize(notes, WspecObject@energy, parts=16)
+  # mean ff
+  user.mean.FF <- round(mean(ff, na.rm = TRUE), 2)
+  user.mean.midi <- round(freq_to_midi(user.mean.FF))
   
-  # smooth the notes:
-  snotes <- smoother(notes)
-  
-  # calculate mean of spectrum
-  
-  mean.spec <- meanspec(Wobj, ovlp=87.5)
-  
-  # get frequency contour/median frequency
-  
-  stats <- seewave::acoustat(Wobj, ovlp=87.5, plot = TRUE) # figure margins too large
-  
-  # get median:
-  
-  user.median.freq <- stats$freq.M
-  user.median.midi <- freq_to_midi(user.median.freq)
   
   # define a user range
   
-  user.range <- generate.user.range(user.median.midi)
+  user.range <- generate.user.range(user.mean.midi)
   
   
   
@@ -268,42 +204,12 @@ periodgram <- function(sound, ...) {
     
     # start body
     
-    # the frequency median
-    renderText({stats$freq.M}),
     
-    # the frequency initial percentile
-    #renderText({stats$freq.P1}),
+    renderPlot({plot(ff)}), # optional: plotenergy = FALSE
     
-    # the frequency terminal percentile
-    #renderText({stats$freq.P2}),
+    renderText({sprintf("The mean FF was %.2f", user.mean.FF)}), # mean FF
     
-    # the frequency interpercentile range
-    #renderText({stats$freq.IPR}),
-    
-    # plot  with the time and frequency contours and percentiles displayed
-    #renderPlot({stats}),
-    
-    
-    #renderText({str(Wobj)}),
-    
-    #renderPlot({plot(mean.spec, type="l", xlab="Frequency (kHz)", ylab="Amplitude")}),
-    
-    # Let's look at the first periodogram:
-    
-    #renderPlot({plot(WspecObject, xlim = c(200, 7500), which = 1) }, height = 200, width = 300), # http://www.bnoack.com/index.html?http&&&www.bnoack.com/audio/speech-level.html
-    
-    # spectrogram
-    
-    #renderPlot({image(WspecObject, ylim = c(0, 1000))}, height = 200, width = 300),
-    
-    
-    # plot melody and energy of the sound:
-    
-    #renderPlot({melodyplot(WspecObject, snotes)}, height = 200, width = 300), # optional: plotenergy = FALSE
-    
-    # quantized melody plot
-    
-    #renderPlot({quantplot(quant_notes, energy = NULL, expected = NULL, bars=1)}, height = 200, width = 300), # check bars argument?
+    renderText({sprintf("The mean MIDI note was %i", user.mean.midi)}), # mean midi note
     
     
     # next page
@@ -312,17 +218,16 @@ periodgram <- function(sound, ...) {
     
   ) # end main div
   
-  psychTestR::page(ui = ui, get_answer = function(input, ...) input$audio)
+  psychTestR::page(ui = ui, get_answer = function(input, ...) toString(input$user.range))
   
 }
 
 
 
-
-
 process.audio <- code_block(function(state, answer, ...) {
-  # answer is your audio from the previous page, as extracted by get_answer()
-  
+  # saves audio from page before
+  # answer is  audio from the previous page, as extracted by get_answer()
+
   a <- answer
   
   ## split two channel audio
@@ -346,42 +251,6 @@ process.audio <- code_block(function(state, answer, ...) {
 
 
 
-microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
-  
-  
-  ui <- div(
-    
-    html.head, # end head
-    
-    # start body
-    
-    shiny::tags$p(
-      "We need to test your microphone before we proceed. Please make sure your microphone is plugged in then click below. You should see your signal coming in below. If you do not, then your microphone may not be setup properly and you will need to try again."
-    ),
-    
-    img(id = "record",
-        src = "https://eartrainer.app/record/mic128.png",
-        onclick = "console.log(\"Pushed Record\");audioContext.resume();console.log(this);toggleRecording(this);",
-        style = "display:block; margin:1px auto;"),
-    
-    trigger_button("next", "Next"),
-    
-    helpText("Click on the microphone to record."),
-    hr(),
-    div(id = "viz",
-        tags$canvas(id = "analyser"),
-        tags$canvas(id = "wavedisplay")
-    ),
-    br(),
-    hr()
-    
-  ) # end main div
-  
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
-  
-}
-
-
 
 record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
   
@@ -390,15 +259,70 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
   
   ui <- div(
     
-    html.head, # end head
+    shiny::tags$script(htmltools::HTML(enable.cors)),
+    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+    includeScript("www/Tone.js"),
+    includeScript("www/main.js"),
+    includeScript("www/speech.js"),
+    includeScript("www/audiodisplay.js"),
     
+    shiny::tags$script(htmltools::HTML('
+                                       // get audio context going
+                                       initAudio();
+                                       '))
+    
+    
+    
+    , # end head
     
     # start body
     
-    shiny::tags$p("We need to record a bit of the room you are in without you singing so we can take into account what your environment sounds like when we process your audio. Please click the button below when you are ready and record yourself in the room <strong>without</strong> singing for 5 seconds.)"),
+    shiny::tags$p("We need to record 5 seconds of your room WITHOUT you singing, just to see what your background noise is like. When you are ready to record your environment for 5 seconds, press the button below."),
     
-    record_ui
+    
+    shiny::tags$div(id="button_area",
+            shiny::tags$button("I'm Ready to record my background", id="playButton", onclick="AutoFiveSecondRecord();")
+                    
+    )
+    
+    ) # end main div
   
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  
+}
+
+
+record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
+  
+  # a page type for recording a 5-second user hum to compute signal-to-noise ratio (SNR)
+  
+  
+  ui <- div(
+    
+    shiny::tags$script(htmltools::HTML(enable.cors)),
+    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+    includeScript("www/Tone.js"),
+    includeScript("www/main.js"),
+    includeScript("www/speech.js"),
+    includeScript("www/audiodisplay.js"),
+    
+    shiny::tags$script(htmltools::HTML('
+                                       // get audio context going
+                                       initAudio();
+                                       '))
+    
+    
+    
+    , # end head
+    
+    # start body
+    
+    shiny::tags$p("Now we need to record you humming any comfortable note for 5-seconds. Feel free to practice first. When you are ready, take a deep breath, start humming and then click the Ready button just after. Try to keep one long hum without stopping at all. You can stop humming when you see the bird."),
+    
+    shiny::tags$div(id="button_area",
+                    shiny::tags$button("I'm Ready to hum (and will start just before I click this)", id="playButton", onclick="AutoFiveSecondRecord();")
+    )
+    
     ) # end main div
   
   psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
@@ -407,38 +331,103 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
 
 
 
-play_long_tone_record_audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_complete = NULL, label= NULL) {
+singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
   
-  # a page type for playing long tones, recording user audio response and saving as a file
-  
-  # i.e an ideal starting pitch
-  user.start.note <- 60 # hardcoded for now
- 
+  # ask the user to sing a well-known song
   
   
-  # play long tone
-  
-  play.long.tone(pitch = user.start.note, midi_or_freq = "midi", duration = 10)
-  
-  
-  # listen for clicks to play button then play
-   
   ui <- div(
     
-    html.head, # end head
+    shiny::tags$script(htmltools::HTML(enable.cors)),
+    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+    includeScript("www/Tone.js"),
+    includeScript("www/main.js"),
+    includeScript("www/speech.js"),
+    includeScript("www/audiodisplay.js"),
     
+    shiny::tags$script(htmltools::HTML('
+                                       // get audio context going
+                                       initAudio();
+                                       '))
+    
+    
+    
+    , # end head
     
     # start body
     
-    shiny::tags$p("Press Play to hear a melody. Please keep singing it back until you think you have sung it correctly, then press Stop. Don't worry if you don't think you sung it right, just do your best!"),
+    shiny::tags$p("Please sing \"Happy Birthday\" using the following lyrics and name:"),
     
-    actionButton("playButton", "Play Melody")
+    shiny::tags$p("Happy birthday to you. Happy birthday to you. Happy birthday to Alex. Happy birthday to you."),
     
-  ) # end main div
+    
+    shiny::tags$p("Press stop when you are finished."),
+    
+    
+    
+    shiny::tags$div(id="button_area",
+                    shiny::tags$button("Sing Happy Birthday", id="playButton", onclick="recordNoPlayback();")
+    )
+    
+    ) # end main div
   
   psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
   
 }
+
+
+
+
+play_long_tone_record_audio_page <- function(user_range_index, admin_ui = NULL, on_complete = NULL, label= NULL) {
+  
+  # a page type for playing a 4-second tone and recording a user singing with it
+  
+  # args
+  # user_range_index: which index of the user's stored range should be used for the long tone
+  
+  
+  #saved.user.range # not setup yet. this should be taken from the beginning of the test
+  
+  saved.user.range <- c(60,61,62,63,64)
+  
+  
+  tone.for.js <- saved.user.range[user_range_index]
+  
+  
+  # listen for clicks from play button then play
+  
+  
+  ui <- div(
+    
+    shiny::tags$script(htmltools::HTML(enable.cors)),
+    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+    includeScript("www/Tone.js"),
+    includeScript("www/main.js"),
+    includeScript("www/speech.js"),
+    includeScript("www/audiodisplay.js"),
+    
+    shiny::tags$script(htmltools::HTML('
+                                       // get audio context going
+                                       initAudio();
+                                       '))
+    
+    
+    
+    , # end head
+    
+    # start body
+    
+    shiny::tags$p("When you click the button below, you will hear a 4-second tone. You must try your best to sing along with this tone immediately. The idea is to sing the exact same tone."),
+    shiny::tags$div(id="button_area",
+                    shiny::tags$button("Play Tone and Sing Along", id="playButton", onclick=sprintf("playTone(%s)", tone.for.js))
+    )
+    
+    ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  
+}
+
 
 
 
@@ -462,87 +451,14 @@ play_mel_record_audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_
     
     shiny::tags$script(htmltools::HTML(enable.cors)),
     shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+    includeScript("www/Tone.js"),
     includeScript("www/main.js"),
     includeScript("www/speech.js"),
     includeScript("www/audiodisplay.js"),
-    includeScript("www/Tone.js"),
 
     shiny::tags$script(htmltools::HTML('
-                                      
                                       // get audio context going
-
                                       initAudio();
-
-                                      //create a synth and connect it to the master output (your speakers)
-                                      const synth = new Tone.Synth().toMaster();
-
-                                      function hidePlayButton() {
-
-                                      var x = document.getElementById("playButton");
-                                       if (x.style.display === "none") {
-                                       x.style.display = "block";
-                                       } else {
-                                       x.style.display = "none";
-                                       }
-                                      
-                                      }
-
-                                      function showStopButton() {
-                                      
-                                      var stopButton = document.createElement("button");
-                                      var br = document.createElement("br");
-                                      stopButton.innerText = "Stop"; // Insert text
-                                      stopButton.addEventListener("click", stopRecording);
-                                      button_area.appendChild(br);
-                                      button_area.appendChild(stopButton);
-                                      }
-                                      
-                                      function showRecordingIcon() {
-                                      
-                                      var img = document.createElement("img"); 
-                                      img.src =  "./sing.png"; 
-                                      img.width = "280";
-                                      img.height = "280";
-                                      button_area.appendChild(img);
-                                      }
-
-
-                                      function play_seq (note_list) {
-      
-                                       console.log(note_list);
-                                       
-                                       note_list.forEach(element => console.log(element));
-                                       
-                                       //midi_list = note_list.map(x => Tone.Frequency(x, "midi"));
-                                       
-                                      midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
-                                      last_note = midi_list[midi_list.length - 1];
-                                       
-                                       var pattern = new Tone.Sequence(function(time, note){
-                                       synth.triggerAttackRelease(note, 0.25);
-                                       console.log(note);
-                                       if (note === last_note) {
-                                       console.log("finished!");
-
-                                      setTimeout(() => {  showRecordingIcon();showStopButton(); }, 1000);
-
-                                      // start recording
-                                       startRecording();
-                                       }
-                                       }, midi_list);
-
-                                       
-                                       pattern.start(0).loop = false;
-                                       // begin at the beginning
-                                       Tone.Transport.start();
-
-                                      hidePlayButton();
-
-
-                                      }
-                                      
-
-                                       
                                        '))
     
     
@@ -552,9 +468,8 @@ play_mel_record_audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_
     # start body
 
     shiny::tags$p("Press Play to hear a melody. Please keep singing it back until you think you have sung it correctly, then press Stop. Don't worry if you don't think you sung it right, just do your best!"),
-    
     shiny::tags$div(id="button_area",
-    shiny::tags$button("Play Melody", id="playButton", onclick=sprintf("play_seq([%s])", mel.for.js))
+    shiny::tags$button("Play Melody", id="playButton", onclick=sprintf("playSeq([%s])", mel.for.js))
     )
 
     ) # end main div
@@ -564,28 +479,163 @@ play_mel_record_audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_
 }
 
 
+play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_complete = NULL, label= NULL) {
+  
+  # a page type for playing a single interval, recording user audio response and saving as a file
+  
+  #saved.user.range # not setup yet. this should be taken from the beginning of the test
+  
+  saved.user.range <- c(60,61,62,63,64)
+  
+  interval <- generate.melody.in.user.range(saved.user.range, interval)
+  
+  interval.for.js <- toString(interval)
+  
+  # listen for clicks from play button then play
+  
+  
+  ui <- div(
+    
+    shiny::tags$script(htmltools::HTML(enable.cors)),
+    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+    includeScript("www/Tone.js"),
+    includeScript("www/main.js"),
+    includeScript("www/speech.js"),
+    includeScript("www/audiodisplay.js"),
+    
+    shiny::tags$script(htmltools::HTML('
+                                      // get audio context going
+                                      initAudio();
+                                       '))
+    
+    
+    
+    , # end head
+    
+    # start body
+    
+    shiny::tags$p("You will hear two notes. Click the button below and sing them back immediately. Don't worry if you make a mistake, just press stop after you tried once."),
+    shiny::tags$div(id="button_area",
+                    shiny::tags$button("Play Two Notes", id="playButton", onclick=sprintf("playSeq([%s])", interval.for.js))
+    )
+    
+  ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  
+}
+
+
+
+microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
+  
+  
+  ui <- div(
+    
+    html.head, # end head
+    
+    # start body
+    
+    shiny::tags$p(
+      "We need to test your microphone before we proceed. Please make sure your microphone is plugged in then click below. You should see your signal coming in below. If you do not, then your microphone may not be setup properly and you will need to try again."
+    ),
+    
+    
+    img(id = "record",
+        src = "https://eartrainer.app/record/mic128.png",
+        onclick = "console.log(\"Pushed Record\");audioContext.resume();console.log(this);toggleRecording(this);",
+        style = "display:block; margin:1px auto;"),
+    
+    trigger_button("next", "Next"),
+    
+    helpText("Click on the microphone to record."),
+    hr(),
+    div(id = "viz",
+        tags$canvas(id = "analyser"),
+        tags$canvas(id = "wavedisplay")
+    ),
+    br(),
+    hr()
+    
+  ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+}
+
+
+
+
+get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
+  
+  
+  ui <- div(
+    
+    html.head, # end head
+    
+    # start body
+    
+    div(shiny::tags$input(id = "user_info"), class="._hidden"
+    )
+    ,
+    br(),
+    shiny::tags$button("Get User Info", id="getUserInfoButton", onclick="getUserInfo();"),
+    br(),
+    trigger_button("next", "Next")
+    
+    
+  ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) fromJSON(input$user_info))
+}
 
 
 # create the timeline
 timeline <- list(
   
-  #volume_calibration_page(),
+  volume_calibration_page(url = "test_headphones.mp3", type='mp3', button_text = "I can hear the song, move on."),
   
-  #microphone_calibration_page(label="microphone_calibration"),
+  get_user_info_page(label="get_user_info"),
   
-  play_mel_record_audio_page(stimuli_no = 1, note_no = 4, label="page_1"),
+  elt_save_results_to_disk(complete = FALSE),
+  
+  record_background_page(label="user_background"),
+  
+  elt_save_results_to_disk(complete = FALSE),
+  
+  record_5_second_hum_page(label = "user_hum"),
+  
+  elt_save_results_to_disk(complete = FALSE),
+  
+  singing_calibration_page(label = "user_singing_calibration"),
   
   elt_save_results_to_disk(complete = FALSE),
   
   reactive_page(function(answer, ...) {
-    periodgram(sound = answer)
-  }),
+        calculate.range(sound = answer)
+     }),
   
-  process.audio,
+  # elt_save.. here?
   
+  play_long_tone_record_audio_page(label="tone_1", user_range_index=1),
+  
+  elt_save_results_to_disk(complete = FALSE),
+  
+  play_interval_record_audio_page(label="interval_1", interval=simple_intervals[1]),
+  
+  elt_save_results_to_disk(complete = FALSE),
+  
+  
+  play_mel_record_audio_page(stimuli_no = 1, note_no = 4, label="melody_1"),
+    
   elt_save_results_to_disk(complete = TRUE), # after last page
+  
   final_page("The end")
+  
 )
+
+
+#process.audio,
+
 
 
 # run the test

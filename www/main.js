@@ -1,5 +1,9 @@
 console.log("loaded main.js");
 
+//create a synth and connect it to the master output (your speakers)
+const synth = new Tone.Synth().toMaster();
+
+//
 
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 
@@ -26,7 +30,7 @@ function saveAudio() {
     console.log("saveAudio called");
 }
 
-function gotBuffers( buffers ) {
+function gotBuffers(buffers, initiateNext) {
     //var canvas = document.getElementById( "wavedisplay" ); SEB revmoed
     //drawBuffer( canvas.width, canvas.height, canvas.getContext('2d'), buffers[0] ); SEB removed
 
@@ -42,7 +46,7 @@ function doneEncoding( blob ) {
     recIndex++;
 }
 
-/* function toggleRecording( e ) {
+function toggleRecording( e ) {
     if (e.classList.contains("recording")) {
         // stop recording
         audioRecorder.stop();
@@ -58,7 +62,7 @@ function doneEncoding( blob ) {
         audioRecorder.clear();
         audioRecorder.record();
     }
-} */
+} 
 
 function startRecording( e ) {
     console.log(audioRecorder);
@@ -189,7 +193,117 @@ function initAudio() {
             console.log(e);
         });
 
-        console.log(navigator.getUserMedia); // SEB Added
 }
 
-//window.addEventListener('load', initAudio );
+function getUserInfo () {
+    console.log(navigator);
+    var _navigator = {};
+    for (var i in navigator) _navigator[i] = navigator[i];
+    delete _navigator.plugins;
+    delete _navigator.mimeTypes;
+    navigatorJSON = JSON.stringify(_navigator);
+    console.log(navigatorJSON);
+    Shiny.setInputValue("user_info", navigatorJSON);
+}
+
+
+function hidePlayButton() {
+
+var x = document.getElementById("playButton");
+ if (x.style.display === "none") {
+ x.style.display = "block";
+ } else {
+ x.style.display = "none";
+ }
+
+}
+
+function showStopButton() {
+
+var stopButton = document.createElement("button");
+var br = document.createElement("br");
+stopButton.innerText = "Stop"; // Insert text
+stopButton.addEventListener("click", stopRecording);
+button_area.appendChild(br);
+button_area.appendChild(stopButton);
+}
+
+function showRecordingIcon() {
+
+var img = document.createElement("img"); 
+img.src =  "./sing.png"; 
+img.width = "280";
+img.height = "280";
+button_area.appendChild(img);
+}
+
+
+function playSeq (note_list) {
+
+ console.log(note_list); // testing
+ note_list.forEach(element => console.log(element)); // testing
+
+ midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
+last_note = midi_list[midi_list.length - 1];
+ 
+ var pattern = new Tone.Sequence(function(time, note){
+ synth.triggerAttackRelease(note, 0.25);
+ console.log(note);
+
+ if (note === last_note) {
+ console.log("finished!");
+
+setTimeout(() => {  showRecordingIcon();showStopButton(); }, 1000);
+// start recording
+ startRecording();
+ }
+ }, midi_list);
+
+ 
+ pattern.start(0).loop = false;
+ // begin at the beginning
+ Tone.Transport.start();
+
+hidePlayButton();
+
+
+}
+
+
+function AutoFiveSecondRecord () {
+
+     // start recording
+     startRecording(); 
+     hidePlayButton();
+    
+    setTimeout(() => {  showRecordingIcon(); }, 1000);
+    setTimeout(() => {  stopRecording(); }, 4000);
+   
+   }
+
+   function recordNoPlayback () {
+
+    // start recording
+    startRecording();
+    setTimeout(() => {  showRecordingIcon();showStopButton(); }, 1000);hidePlayButton();
+   
+   }
+  
+
+
+   function  playTone(tone) {
+
+    tone = Number(tone);
+    console.log(tone);
+
+    freq_tone = Tone.Frequency(tone, "midi").toNote();
+    console.log(freq_tone);
+
+    synth.triggerAttackRelease(freq_tone, 6);
+
+    // start recording
+    startRecording();
+    setTimeout(() => {  showRecordingIcon(); }, 1000); // after a little pause show the recording icon
+    hidePlayButton(); // hide the playbutton
+    setTimeout(() => {  stopRecording(); }, 4000); // stop recording after 4 seconds
+   }
