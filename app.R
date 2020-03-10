@@ -283,7 +283,9 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
     shiny::tags$div(id="button_area",
             shiny::tags$button("I'm Ready to record my background", id="playButton", onclick="AutoFiveSecondRecord();")
                     
-    )
+    ),
+    
+    shiny::tags$div(id="loading_area")
     
     ) # end main div
   
@@ -317,13 +319,17 @@ record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label=
     
     # start body
     
-    shiny::tags$p("Now we need to record you humming any comfortable note for 5-seconds. Feel free to practice first. When you are ready, take a deep breath, start humming and then click the Ready button just after. Try to keep one long hum without stopping at all. You can stop humming when you see the bird."),
+    shiny::tags$p("Now we need to record you humming any comfortable note for 5-seconds. Feel free to practice first. When you are ready, take a deep breath, start humming and then click the Ready button just after. Try to keep one long hum without stopping at all. You can stop humming when the bird disappears."),
     
     shiny::tags$div(id="button_area",
                     shiny::tags$button("I'm Ready to hum (and will start just before I click this)", id="playButton", onclick="AutoFiveSecondRecord();")
-    )
+    ),
+    
+    shiny::tags$div(id="loading_area")
+    
     
     ) # end main div
+  
   
   psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
   
@@ -367,7 +373,10 @@ singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label=
     
     shiny::tags$div(id="button_area",
                     shiny::tags$button("Sing Happy Birthday", id="playButton", onclick="recordNoPlayback();")
-    )
+    ),
+    
+    shiny::tags$div(id="loading_area")
+    
     
     ) # end main div
   
@@ -420,7 +429,9 @@ play_long_tone_record_audio_page <- function(user_range_index, admin_ui = NULL, 
     shiny::tags$p("When you click the button below, you will hear a 4-second tone. You must try your best to sing along with this tone immediately. The idea is to sing the exact same tone."),
     shiny::tags$div(id="button_area",
                     shiny::tags$button("Play Tone and Sing Along", id="playButton", onclick=sprintf("playTone(%s)", tone.for.js))
-    )
+    ),
+    
+    shiny::tags$div(id="loading_area")
     
     ) # end main div
   
@@ -470,7 +481,10 @@ play_mel_record_audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_
     shiny::tags$p("Press Play to hear a melody. Please keep singing it back until you think you have sung it correctly, then press Stop. Don't worry if you don't think you sung it right, just do your best!"),
     shiny::tags$div(id="button_area",
     shiny::tags$button("Play Melody", id="playButton", onclick=sprintf("playSeq([%s])", mel.for.js))
-    )
+    ),
+    
+    shiny::tags$div(id="loading_area")
+    
 
     ) # end main div
   
@@ -517,7 +531,9 @@ play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_comple
     shiny::tags$p("You will hear two notes. Click the button below and sing them back immediately. Don't worry if you make a mistake, just press stop after you tried once."),
     shiny::tags$div(id="button_area",
                     shiny::tags$button("Play Two Notes", id="playButton", onclick=sprintf("playSeq([%s])", interval.for.js))
-    )
+    ),
+    
+    shiny::tags$div(id="loading_area")
     
   ) # end main div
   
@@ -532,7 +548,14 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
   
   ui <- div(
     
-    html.head, # end head
+    shiny::tags$head(
+      shiny::tags$script(htmltools::HTML(enable.cors)),
+      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+      includeScript("www/Tone.js"),
+      includeScript("www/main.js"),
+      includeScript("www/speech.js"),
+      includeScript("www/audiodisplay.js")
+    ),
     
     # start body
     
@@ -543,10 +566,9 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
     
     img(id = "record",
         src = "https://eartrainer.app/record/mic128.png",
-        onclick = "console.log(\"Pushed Record\");audioContext.resume();console.log(this);toggleRecording(this);",
+        onclick = "console.log(\"Pushed Record\");console.log(this);initAudio();toggleRecording(this);",
         style = "display:block; margin:1px auto;"),
     
-    trigger_button("next", "Next"),
     
     helpText("Click on the microphone to record."),
     hr(),
@@ -555,11 +577,12 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
         tags$canvas(id = "wavedisplay")
     ),
     br(),
+    trigger_button("next", "Next"),
     hr()
     
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE)
 }
 
 
@@ -598,6 +621,8 @@ timeline <- list(
   
   elt_save_results_to_disk(complete = FALSE),
   
+  microphone_calibration_page(label = "microphone_test"),
+  
   record_background_page(label="user_background"),
   
   elt_save_results_to_disk(complete = FALSE),
@@ -630,7 +655,6 @@ timeline <- list(
   elt_save_results_to_disk(complete = TRUE), # after last page
   
   final_page("The end")
-  
 )
 
 
@@ -641,7 +665,7 @@ timeline <- list(
 # run the test
 test <- make_test(
   elts = timeline,
-  opt = test_options("Test", "demo",
+  opt = test_options("Melody Singing", "demo",
     display = display_options(
       css = "style.css")
   )

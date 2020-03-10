@@ -31,14 +31,34 @@ function saveAudio() {
 }
 
 function gotBuffers(buffers, initiateNext) {
-    //var canvas = document.getElementById( "wavedisplay" ); SEB revmoed
-    //drawBuffer( canvas.width, canvas.height, canvas.getContext('2d'), buffers[0] ); SEB removed
+
+     // if (updateDisplay===true) {
+    //     var canvas = document.getElementById( "wavedisplay" ); 
+    //     drawBuffer( canvas.width, canvas.height, canvas.getContext('2d'), buffers[0] );
+    // }
+
+    Shiny.onInputChange("audio", buffers);
+    //Shiny.onInputChange("next_page", performance.now());
+    next_page();
+    hideRecordImage(); showLoadingIcon();
+    console.log("reached end of gotBuffers");
+
+
 
     // the ONLY time gotBuffers is called is right after a new recording is completed -
     // so here's where we should set up the download.
     //audioRecorder.exportWAV( doneEncoding );
-    Shiny.onInputChange("audio", buffers);
-    next_page();
+  
+}
+
+
+function gotBuffersUI(buffers) {
+
+    var canvas = document.getElementById( "wavedisplay" ); 
+    drawBuffer( canvas.width, canvas.height, canvas.getContext('2d'), buffers[0] );
+
+   Shiny.onInputChange("audio", buffers);
+ 
 }
 
 function doneEncoding( blob ) {
@@ -50,11 +70,11 @@ function toggleRecording( e ) {
     if (e.classList.contains("recording")) {
         // stop recording
         audioRecorder.stop();
+        audioContext.suspend();
         e.classList.remove("recording");
-        audioRecorder.getBuffers( gotBuffers );
     } else {
         // start recording
-        console.log(audioRecorder);
+
         if (!audioRecorder)
             return;
         audioContext.resume();
@@ -77,6 +97,7 @@ function startRecording( e ) {
 function stopRecording( e ) {   // stop recording
     audioRecorder.stop();
     audioRecorder.getBuffers(gotBuffers);
+    console.log("reached end of stopRecording");
 }
 
 function convertToMono( input ) {
@@ -218,6 +239,18 @@ var x = document.getElementById("playButton");
 
 }
 
+
+function hideRecordImage() {
+
+    var x = document.getElementById("button_area");
+         if (x.style.display === "none") {
+     x.style.display = "block";
+     } else {
+     x.style.display = "none";
+     }
+    
+    }
+
 function showStopButton() {
 
 var stopButton = document.createElement("button");
@@ -236,6 +269,15 @@ img.width = "280";
 img.height = "280";
 button_area.appendChild(img);
 }
+
+function showLoadingIcon() {
+
+    var img = document.createElement("img"); 
+    img.src =  "./loading.gif"; 
+    img.width = "320";
+    img.height = "224";
+    loading_area.appendChild(img);
+    }
 
 
 function playSeq (note_list) {
@@ -276,7 +318,7 @@ function AutoFiveSecondRecord () {
      startRecording(); 
      hidePlayButton();
     
-    setTimeout(() => {  showRecordingIcon(); }, 1000);
+    setTimeout(() => {  showRecordingIcon(); }, 500);
     setTimeout(() => {  stopRecording(); }, 4000);
    
    }
@@ -285,7 +327,13 @@ function AutoFiveSecondRecord () {
 
     // start recording
     startRecording();
-    setTimeout(() => {  showRecordingIcon();showStopButton(); }, 1000);hidePlayButton();
+
+    setTimeout(() => {  
+        showRecordingIcon();
+        showStopButton(); 
+        }, 500);
+        
+        hidePlayButton();
    
    }
   
@@ -303,7 +351,7 @@ function AutoFiveSecondRecord () {
 
     // start recording
     startRecording();
-    setTimeout(() => {  showRecordingIcon(); }, 1000); // after a little pause show the recording icon
+    setTimeout(() => {  showRecordingIcon(); }, 500); // after a little pause show the recording icon
     hidePlayButton(); // hide the playbutton
     setTimeout(() => {  stopRecording(); }, 4000); // stop recording after 4 seconds
    }
