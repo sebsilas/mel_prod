@@ -629,6 +629,87 @@ timeline <- list(
   
   record_5_second_hum_page(label = "user_hum"),
   
+  reactive_page(function(state, ...) {
+    
+    dis <- as.list(results(state))
+    
+    # first for user background
+    user_background <- dis$results$user_background
+    
+
+    ## split two channel audio
+    audio_split_user_background <- length(user_background)/2
+    
+    user_background1 <- user_background[1:audio_split_user_background]
+
+    user_background2 <- user_background[(audio_split_user_background+1):length(user_background)]
+    
+    # construct wav object that the API likes
+    userbgWobj <- Wave(user_background1, user_background2, samp.rate = 44100, bit = 16)
+    
+    userbgWobj <- normalize(userbgWobj, unit = "16", pcm = TRUE)
+    
+    userbgWobj <- mono(userbgWobj)
+    
+    
+    #periodgram
+    user_backgroundWspecObject <- periodogram(userbgWobj, width = 1024, overlap = 512)
+    
+    
+    # same thing for note sing
+    user_hum <- dis$results$user_hum
+    
+    ## split two channel audio
+    audio_split_user_hum <- length(user_hum)/2
+    user_hum1 <- user_hum[1:audio_split_user_hum]
+    user_hum2 <- user_hum[(audio_split_user_hum+1):length(user_hum)]
+    
+    # construct wav object that the API likes
+    user_humWobj <- Wave(user_hum1, user_hum2, samp.rate = 44100, bit = 16)
+    user_humWobj <- normalize(user_humWobj, unit = "16", pcm = TRUE)
+    user_humWobj <- mono(user_humWobj)
+    
+    #periodgram
+    user_humWspecObject <- periodogram(user_humWobj, width = 1024, overlap = 512)
+    
+    # compute SNR
+    
+    SNR <- 20*log10(abs(rms(env(user_humWobj))-rms(env(userbgWobj)))/rms(env(userbgWobj))) 
+    
+    ui <- div(
+      
+      shiny::tags$head(
+        shiny::tags$script(htmltools::HTML(enable.cors)),
+        shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+        includeScript("www/main.js"),
+        includeScript("www/speech.js"),
+        includeScript("www/audiodisplay.js")
+        
+      ), # end head
+      
+      # start body
+      
+      renderText({SNR}),
+      
+      renderText({"User Background"}), # optional: plotenergy = FALSE
+      
+      renderPlot({plot(user_backgroundWspecObject)}), # optional: plotenergy = FALSE
+      
+      renderText({"User Hum"}), # optional: plotenergy = FALSE
+      
+      renderPlot({plot(user_humWspecObject)}), # optional: plotenergy = FALSE
+      
+      
+      # next page
+      trigger_button("next", "Next")
+      
+      
+    ) # end main div
+    
+    psychTestR::page(ui = ui)
+    
+  }),
+  
   elt_save_results_to_disk(complete = FALSE),
   
   singing_calibration_page(label = "user_singing_calibration"),
@@ -653,7 +734,7 @@ timeline <- list(
   play_mel_record_audio_page(stimuli_no = 1, note_no = 4, label="melody_1"),
     
   elt_save_results_to_disk(complete = TRUE), # after last page
-  
+
   final_page("The end")
 )
 
