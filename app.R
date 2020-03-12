@@ -23,6 +23,9 @@ require(rjson)
 
 midi_notes <- c(40:84)
 freq_notes <- lapply(midi_notes, midi_to_freq)
+lowest_freq <- midi_to_freq(midi_notes[1])
+highest_freq <- midi_to_freq(midi_notes[length(midi_notes)])
+freq_range <- c(lowest_freq, highest_freq)
 
 simple_intervals <- c(-12:24)
 
@@ -146,8 +149,14 @@ generate.melody.in.user.range <- function(user_range, rel_melody) {
   
 }
 
+compute.SNR <- function(signal, noise) {
+  SNR <- 20*log10(abs(rms(env(signal))-rms(env(noise)))/rms(env(noise))) 
+  return(SNR)
+}
 
-
+  
+  
+ 
 
 ### PAGES ###
 
@@ -157,10 +166,90 @@ generate.melody.in.user.range <- function(user_range, rel_melody) {
 # consider stereo/mono!! ...
 
 
-
-calculate.range <- function(sound, ...) {
+SNR.page <- reactive_page(function(state, ...) {
   
-  a <- sound
+  
+  dis <- as.list(results(state))
+
+  
+  # first for user background
+  user_background <- dis$results$user_background$audio
+  
+  
+  ## split two channel audio
+  audio_split_user_background <- length(user_background)/2
+  
+  user_background1 <- as.numeric(unlist(user_background[1:audio_split_user_background]))
+  user_background2 <- as.numeric(unlist(user_background[(audio_split_user_background+1):length(user_background)]))
+  
+
+  # # construct wav object that the API likes
+  userbgWobj <- Wave(user_background1, user_background2, samp.rate = 44100, bit = 16)
+   
+  userbgWobj <- normalize(userbgWobj, unit = "16", pcm = TRUE)
+
+  userbgWobj <- mono(userbgWobj)
+  
+
+  #periodgram
+  userbgWspecObject <- tuneR::periodogram(userbgWobj, width = 1024, overlap = 512)
+
+
+  # same thing for note sing
+  user_hum <- dis$results$user_hum$audio
+
+  ## split two channel audio
+  audio_split_user_hum <- length(user_hum)/2
+  user_hum1 <- user_hum[1:audio_split_user_hum]
+  user_hum2 <- user_hum[(audio_split_user_hum+1):length(user_hum)]
+
+  # construct wav object that the API likes
+  user_humWobj <- Wave(user_hum1, user_hum2, samp.rate = 44100, bit = 16)
+  user_humWobj <- normalize(user_humWobj, unit = "16", pcm = TRUE)
+  user_humWobj <- mono(user_humWobj)
+
+  #periodgram
+  userhumWspecObject <- periodogram(user_humWobj, width = 1024, overlap = 512)
+
+  SNR <- compute.SNR(user_humWobj,userbgWobj)
+  
+  ui <- div(
+    
+    shiny::tags$head(
+      shiny::tags$script(htmltools::HTML(enable.cors)),
+      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+      includeScript("www/main.js"),
+      includeScript("www/speech.js"),
+      includeScript("www/audiodisplay.js")
+      
+    ), # end head
+    
+    # start body
+    
+    renderText({SNR}),
+    
+    renderText({"User Background"}), # optional: plotenergy = FALSE
+    
+    renderPlot({plot(userbgWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
+    
+    renderText({"User Hum"}), # optional: plotenergy = FALSE
+    
+    renderPlot({plot(userhumWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
+    
+    
+    # next page
+    trigger_button("next", "Next")
+    
+    
+  ) # end main div
+  
+  psychTestR::page(ui = ui)
+  
+})
+
+calculate.range <- function(answer, ...) {
+  
+  a <- answer$audio
   
   ## split two channel audio
   audio_split <- length(a)/2
@@ -177,12 +266,18 @@ calculate.range <- function(sound, ...) {
   WspecObject <- periodogram(Wobj, width = 1024, overlap = 512)
   
   # calculate the fundamental frequency:
-  ff <- tuneR::FF(WspecObject, peakheight=0.015)
+  ff <- tuneR::FF(WspecObject, peakheight=0.015) #tuneR solution: issue, no bandpass try to get below working
   
+  #ff <- seewave::autoc(WspecObject, f = 44100, fmin = round(lowest_freq), fmax = round(highest_freq), plot = FALSE) # NB, also threshold argument
+  
+  print(ff)
   
   # mean ff
   user.mean.FF <- round(mean(ff, na.rm = TRUE), 2)
   user.mean.midi <- round(freq_to_midi(user.mean.FF))
+  
+  print(user.mean.FF)
+  print(user.mean.midi)
   
   
   # define a user range
@@ -224,27 +319,96 @@ calculate.range <- function(sound, ...) {
 
 
 
+get.answer.grab.audio <- function(input, ...) {
+      tc = Sys.time()
+  list(trial.id = NULL, # should be page label
+       audio = input$audio,
+       trial.timecode = tc,
+       trial.filename =  gsub("[^0-9]","",tc)
+       )
+}
+  
+  
+
+add.file.info.to.list <- function(state, answer) {
+  
+  # for testing. keep a list of the file names to present at the end of a test
+  
+  trial.filename <- answer$trial.filename
+  trial.name <- answer
+  
+  print(answer)
+
+  state_global <- get_global("file_list", state)
+  
+  if (is.null(state_global) == TRUE) {
+    
+    # if a file_list doesn't exist, create one and add the first item to the list
+    
+    print("it's null")
+    
+    set_global("file_list", list(trial.filename), state)
+    
+    print("added item")
+    print(get_global("file_list", state))
+    
+    
+  } 
+    else {
+    print("it's not null")
+      
+    # if it does exist, then append the latest response to the list
+    
+    file_list <- get_global("file_list", state)
+    
+    updated.list <- c(file_list, trial.filename)
+    
+    set_global("file_list", updated.list, state)
+    
+    print("added item")
+    
+    print(get_global("file_list", state))
+    
+    
+  }
+  
+  
+}
+
 process.audio <- code_block(function(state, answer, ...) {
   # saves audio from page before
   # answer is  audio from the previous page, as extracted by get_answer()
 
-  a <- answer
-  
+  a <- answer$audio
+
+  trial.filename <- answer$trial.filename
+
   ## split two channel audio
   audio_split <- length(a)/2
+  
   a1 <- a[1:audio_split]
+  
   a2 <- a[(audio_split+1):length(a)]
   
   # construct wav object that the API likes
   Wobj <- Wave(a1, a2, samp.rate = 44100, bit = 16)
   Wobj <- normalize(Wobj, unit = "16", pcm = TRUE)
-  Wobj <- mono(Wobj)
+  #Wobj <- mono(Wobj)
   
-  wav_name <- paste0("audio",gsub("[^0-9]","",Sys.time()),".wav")
-  
+  # writing the file to the www directory
+  wav_name <- paste0("www/audio",trial.filename,".wav")
   writeWave(Wobj, wav_name, extensible = FALSE)
-  
   wav_name
+  
+  # session-specific writing
+  session_dir <- get_session_info(state, complete = FALSE)$p_id
+  wav_name_sess <- paste0("output/sessions/",session_dir, "/audio",trial.filename,".wav")
+  writeWave(Wobj, wav_name_sess, extensible = FALSE)
+  wav_name_sess
+  
+  # and append the file name to the test session global variable
+  
+  add.file.info.to.list(state, answer)
 })
 
 
@@ -289,7 +453,7 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
     
     ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = get.answer.grab.audio)
   
 }
 
@@ -331,7 +495,7 @@ record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label=
     ) # end main div
   
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = get.answer.grab.audio)
   
 }
 
@@ -339,8 +503,8 @@ record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label=
 
 singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
   
-  # ask the user to sing a well-known song
   
+  # ask the user to sing a well-known song
   
   ui <- div(
     
@@ -380,7 +544,7 @@ singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label=
     
     ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = get.answer.grab.audio)
   
 }
 
@@ -435,7 +599,7 @@ play_long_tone_record_audio_page <- function(user_range_index, admin_ui = NULL, 
     
     ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = get.answer.grab.audio)
   
 }
 
@@ -488,7 +652,7 @@ play_mel_record_audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_
 
     ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = get.answer.grab.audio)
   
 }
 
@@ -537,7 +701,7 @@ play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_comple
     
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) input$audio)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = get.answer.grab.audio)
   
 }
 
@@ -586,8 +750,6 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
 }
 
 
-
-
 get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
   
   
@@ -597,11 +759,13 @@ get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL) 
     
     # start body
     
-    div(shiny::tags$input(id = "user_info"), class="._hidden"
+    div(shiny::tags$input(id = "user_info"), class="_hidden"
     )
     ,
     br(),
     shiny::tags$button("Get User Info", id="getUserInfoButton", onclick="getUserInfo();"),
+    br(),
+    br(),
     br(),
     trigger_button("next", "Next")
     
@@ -612,134 +776,120 @@ get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL) 
 }
 
 
+
+present_files_page <- function(state, admin_ui = NULL, on_complete = NULL, label= NULL) {
+  
+  file_list <- get_global("file_list", state)
+  
+  html.file.list <- list() # instantiate empty string
+  
+  count <- 1
+  
+  for (f in file_list) {
+
+    path <- paste0("audio",f,".wav")
+
+      new.tag <- tags$audio(src = path, type = "audio/wav", autoplay = FALSE, controls = TRUE)
+      
+      html.file.list[[count]] <- new.tag
+      html.file.list[[count+1]] <- br()
+      
+      count <- count+2
+      }
+  
+  html.file.list <- tagList(html.file.list)
+  
+  ui <- div(
+    
+    html.head, # end head
+    
+    # start body
+    
+    html.file.list,
+    
+    trigger_button("next", "Next")
+    
+    
+  ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = FALSE)
+}
+
+
 # create the timeline
 timeline <- list(
   
-  volume_calibration_page(url = "test_headphones.mp3", type='mp3', button_text = "I can hear the song, move on."),
+  
+  #volume_calibration_page(url = "test_headphones.mp3", type='mp3', button_text = "I can hear the song, move on."),
   
   get_user_info_page(label="get_user_info"),
   
+  
   elt_save_results_to_disk(complete = FALSE),
+  
+  code_block(function(state, ...) {
+    # seems like this may need to be after some form of results to disk saving
+    session_dir <- get_session_info(state, complete = FALSE)$p_id
+    
+    print(session_dir)
+    
+  }),
   
   microphone_calibration_page(label = "microphone_test"),
   
   record_background_page(label="user_background"),
   
+  process.audio,
+  
   elt_save_results_to_disk(complete = FALSE),
   
   record_5_second_hum_page(label = "user_hum"),
   
-  reactive_page(function(state, ...) {
-    
-    dis <- as.list(results(state))
-    
-    # first for user background
-    user_background <- dis$results$user_background
-    
-
-    ## split two channel audio
-    audio_split_user_background <- length(user_background)/2
-    
-    user_background1 <- user_background[1:audio_split_user_background]
-
-    user_background2 <- user_background[(audio_split_user_background+1):length(user_background)]
-    
-    # construct wav object that the API likes
-    userbgWobj <- Wave(user_background1, user_background2, samp.rate = 44100, bit = 16)
-    
-    userbgWobj <- normalize(userbgWobj, unit = "16", pcm = TRUE)
-    
-    userbgWobj <- mono(userbgWobj)
-    
-    
-    #periodgram
-    user_backgroundWspecObject <- periodogram(userbgWobj, width = 1024, overlap = 512)
-    
-    
-    # same thing for note sing
-    user_hum <- dis$results$user_hum
-    
-    ## split two channel audio
-    audio_split_user_hum <- length(user_hum)/2
-    user_hum1 <- user_hum[1:audio_split_user_hum]
-    user_hum2 <- user_hum[(audio_split_user_hum+1):length(user_hum)]
-    
-    # construct wav object that the API likes
-    user_humWobj <- Wave(user_hum1, user_hum2, samp.rate = 44100, bit = 16)
-    user_humWobj <- normalize(user_humWobj, unit = "16", pcm = TRUE)
-    user_humWobj <- mono(user_humWobj)
-    
-    #periodgram
-    user_humWspecObject <- periodogram(user_humWobj, width = 1024, overlap = 512)
-    
-    # compute SNR
-    
-    SNR <- 20*log10(abs(rms(env(user_humWobj))-rms(env(userbgWobj)))/rms(env(userbgWobj))) 
-    
-    ui <- div(
-      
-      shiny::tags$head(
-        shiny::tags$script(htmltools::HTML(enable.cors)),
-        shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-        includeScript("www/main.js"),
-        includeScript("www/speech.js"),
-        includeScript("www/audiodisplay.js")
-        
-      ), # end head
-      
-      # start body
-      
-      renderText({SNR}),
-      
-      renderText({"User Background"}), # optional: plotenergy = FALSE
-      
-      renderPlot({plot(user_backgroundWspecObject)}), # optional: plotenergy = FALSE
-      
-      renderText({"User Hum"}), # optional: plotenergy = FALSE
-      
-      renderPlot({plot(user_humWspecObject)}), # optional: plotenergy = FALSE
-      
-      
-      # next page
-      trigger_button("next", "Next")
-      
-      
-    ) # end main div
-    
-    psychTestR::page(ui = ui)
-    
-  }),
+  process.audio,
+  
+  SNR.page,
   
   elt_save_results_to_disk(complete = FALSE),
-  
+   
   singing_calibration_page(label = "user_singing_calibration"),
   
+  process.audio,
+  
   elt_save_results_to_disk(complete = FALSE),
   
-  reactive_page(function(answer, ...) {
-        calculate.range(sound = answer)
-     }),
   
-  # elt_save.. here?
+  reactive_page(function(answer, ...) {
+    calculate.range(answer = answer)
+  }),
   
   play_long_tone_record_audio_page(label="tone_1", user_range_index=1),
+
+  process.audio,
   
   elt_save_results_to_disk(complete = FALSE),
   
   play_interval_record_audio_page(label="interval_1", interval=simple_intervals[1]),
+
+  process.audio,
   
   elt_save_results_to_disk(complete = FALSE),
   
-  
-  play_mel_record_audio_page(stimuli_no = 1, note_no = 4, label="melody_1"),
-    
-  elt_save_results_to_disk(complete = TRUE), # after last page
 
+  play_mel_record_audio_page(stimuli_no = 1, note_no = 4, label="melody_1"),
+  
+  process.audio,
+  
+  elt_save_results_to_disk(complete = FALSE),
+  
+  reactive_page(function(state, ...) {
+    present_files_page(state = state, label = "present_files")
+  }),
+
+  elt_save_results_to_disk(complete = TRUE), # after last page
+  
   final_page("The end")
 )
 
-
-#process.audio,
 
 
 

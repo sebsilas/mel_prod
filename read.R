@@ -10,3 +10,5 @@ latest <- rownames(results)[which.max(results$mtime)]
 res <- readRDS(latest)
 
 res
+
+res$results$user_background
