@@ -15,7 +15,6 @@ library(shinyjs)
 library(tuneR)
 library(googleLanguageR)
 library(seewave)
-library(audio)
 library(hrep)
 require(rjson)
 
@@ -26,12 +25,16 @@ freq_notes <- lapply(midi_notes, midi_to_freq)
 lowest_freq <- midi_to_freq(midi_notes[1])
 highest_freq <- midi_to_freq(midi_notes[length(midi_notes)])
 freq_range <- c(lowest_freq, highest_freq)
-
 simple_intervals <- c(-12:24)
 
 
 # import stimuli as relative midi notes
 stimuli <- readRDS("Berkowitz_midi_relative.RDS")
+
+# list of page types that don't return audio
+
+non.audio.pages <- list("get_user_info", "microphone_test", "present_files")
+
 
 
 # html header
@@ -191,7 +194,7 @@ SNR.page <- reactive_page(function(state, ...) {
   userbgWobj <- mono(userbgWobj)
   
 
-  #periodgram
+  #periodogram
   userbgWspecObject <- tuneR::periodogram(userbgWobj, width = 1024, overlap = 512)
 
 
@@ -208,7 +211,7 @@ SNR.page <- reactive_page(function(state, ...) {
   user_humWobj <- normalize(user_humWobj, unit = "16", pcm = TRUE)
   user_humWobj <- mono(user_humWobj)
 
-  #periodgram
+  #periodogram
   userhumWspecObject <- periodogram(user_humWobj, width = 1024, overlap = 512)
 
   SNR <- compute.SNR(user_humWobj,userbgWobj)
@@ -226,15 +229,15 @@ SNR.page <- reactive_page(function(state, ...) {
     
     # start body
     
-    renderText({SNR}),
+    renderText({paste0("SNR: ",round(SNR,2))}),
     
-    renderText({"User Background"}), # optional: plotenergy = FALSE
+    #renderText({"User Background"}), # optional: plotenergy = FALSE
     
-    renderPlot({plot(userbgWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
+    #renderPlot({plot(userbgWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
     
-    renderText({"User Hum"}), # optional: plotenergy = FALSE
+    #renderText({"User Hum"}), # optional: plotenergy = FALSE
     
-    renderPlot({plot(userhumWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
+    #renderPlot({plot(userhumWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
     
     
     # next page
@@ -356,7 +359,6 @@ add.file.info.to.list <- function(state, answer) {
   } 
     else {
     print("it's not null")
-      
     # if it does exist, then append the latest response to the list
     
     file_list <- get_global("file_list", state)
@@ -483,7 +485,7 @@ record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label=
     
     # start body
     
-    shiny::tags$p("Now we need to record you humming any comfortable note for 5-seconds. Feel free to practice first. When you are ready, take a deep breath, start humming and then click the Ready button just after. Try to keep one long hum without stopping at all. You can stop humming when the bird disappears."),
+    shiny::tags$p("Now we need to record you humming any comfortable note for 5-seconds. Feel free to practice first. When you are ready, take a deep breath, start humming and then click the Ready button just after. Try to keep one long hum without stopping at all. You can stop humming when the red bird disappears."),
     
     shiny::tags$div(id="button_area",
                     shiny::tags$button("I'm Ready to hum (and will start just before I click this)", id="playButton", onclick="AutoFiveSecondRecord();")
@@ -779,25 +781,56 @@ get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL) 
 
 present_files_page <- function(state, admin_ui = NULL, on_complete = NULL, label= NULL) {
   
+  
+  
+  # get list of (all) page titles
+  
+  page_titles <- names(as.list(results(state))$results)
+  
+  print(page_titles)
+  
+  # create a list of pages that return audio
+  
+  joined_list <- unlist(c(page_titles, non.audio.pages))
+  
+  print(joined_list)
+  
+  audio_pages <- joined_list[!(duplicated(joined_list)|duplicated(joined_list, fromLast=TRUE))]   # return only the unique value
+  
+  print(audio_pages)
+  
+  # now get list of file names
+  
+  
   file_list <- get_global("file_list", state)
   
   html.file.list <- list() # instantiate empty string
   
   count <- 1
+  count_4 <- 1
   
   for (f in file_list) {
-
+    
+    title <- audio_pages[count]
     path <- paste0("audio",f,".wav")
 
+      new.title <- tags$p(title)
+      
       new.tag <- tags$audio(src = path, type = "audio/wav", autoplay = FALSE, controls = TRUE)
       
-      html.file.list[[count]] <- new.tag
-      html.file.list[[count+1]] <- br()
+      html.file.list[[count_4]] <- new.title
+      html.file.list[[count_4+1]] <- br()
+      html.file.list[[count_4+2]] <- new.tag
+      html.file.list[[count_4+3]] <- br()
       
-      count <- count+2
+      count <- count+1
+      count_4 <- count_4+4
       }
   
   html.file.list <- tagList(html.file.list)
+  
+  print(html.file.list)
+ 
   
   ui <- div(
     
